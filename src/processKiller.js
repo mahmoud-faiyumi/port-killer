@@ -5,10 +5,6 @@ const execFileAsync = promisify(execFile);
 
 const POSITIVE_INT_PATTERN = /^\d+$/;
 
-/**
- * @param {unknown} value
- * @returns {value is number}
- */
 function isSafePid(value) {
   if (typeof value !== 'number' || !Number.isInteger(value)) {
     return false;
@@ -19,12 +15,6 @@ function isSafePid(value) {
   return value < 2 ** 31;
 }
 
-/**
- * Terminates a process by PID. Platform-specific: taskkill (Windows) / kill (Unix).
- *
- * @param {number} pid
- * @returns {Promise<{ ok: true } | { ok: false, error: string }>}
- */
 async function killProcessByPid(pid) {
   if (!isSafePid(pid)) {
     return { ok: false, error: 'Invalid PID' };

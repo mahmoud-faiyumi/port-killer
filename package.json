@@ -2,7 +2,7 @@
   "name": "port-killer",
   "version": "1.0.1",
   "type": "commonjs",
-  "description": "Cross-platform desktop app to list TCP ports and kill processes by PID",
+  "description": "Windows desktop app to list TCP ports and kill processes by PID",
   "main": "main.js",
   "author": "",
   "license": "MIT",
@@ -13,7 +13,7 @@
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "build": "electron-builder",
+    "build": "electron-builder --win",
     "generate:icon": "node scripts/generate-icon.cjs"
   },
   "devDependencies": {
@@ -43,19 +43,6 @@
         "nsis"
       ],
       "artifactName": "Port-Killer-Setup.${ext}"
-    },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Utility",
-      "artifactName": "Port-Killer.${ext}"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.utilities"
     },
     "nsis": {
       "oneClick": false,

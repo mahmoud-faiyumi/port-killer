@@ -1,46 +1,21 @@
 (function () {
   'use strict';
 
-  /** @type {HTMLElement | null} */
   const rowsBody = document.getElementById('rows-body');
-  /** @type {HTMLButtonElement | null} */
   const refreshBtn = document.querySelector('#refresh-btn');
-  /** @type {HTMLInputElement | null} */
   const filterInput = document.querySelector('#filter-input');
-  /** @type {HTMLInputElement | null} */
   const showSystemPortsInput = document.querySelector('#show-system-ports');
-  /** @type {HTMLInputElement | null} */
   const devManualPortsOnlyInput = document.querySelector('#dev-manual-ports-only');
-  /** @type {HTMLInputElement | null} */
   const extraDevPortsInput = document.querySelector('#extra-dev-ports');
-  /** @type {HTMLElement | null} */
   const countBadge = document.getElementById('count-badge');
-  /** @type {HTMLElement | null} */
   const statusBar = document.getElementById('status-bar');
-  /** @type {HTMLElement | null} */
   const loading = document.getElementById('loading');
-  /** @type {HTMLElement | null} */
   const emptyHint = document.getElementById('empty-hint');
 
-  /**
-   * @typedef {Object} PortRow
-   * @property {number} port
-   * @property {string} localAddress
-   * @property {number} pid
-   * @property {string} processName
-   * @property {string} state
-   */
-
-  /** IANA well-known port range; hidden when "Show system ports" is off. */
   const WELL_KNOWN_PORT_MAX = 1023;
 
   const EXTRA_DEV_PORTS_STORAGE_KEY = 'portKiller.devPortsExtra';
 
-  /**
-   * @param {number} lo
-   * @param {number} hi
-   * @returns {number[]}
-   */
   function portRange(lo, hi) {
     const out = [];
     for (let p = lo; p <= hi; p += 1) {
@@ -49,7 +24,6 @@
     return out;
   }
 
-  /** Preset “manual / dev” ports (HTTP stacks, SPA dev servers, bundlers, DBs on localhost, etc.). */
   const DEFAULT_MANUAL_DEV_PORT_SET = new Set(
     [
       80,
@@ -96,13 +70,8 @@
     ],
   );
 
-  /** @type {PortRow[] | null} */
   let allRows = null;
 
-  /**
-   * @param {string} raw
-   * @returns {number[]}
-   */
   function parseCommaSeparatedPorts(raw) {
     if (!raw || typeof raw !== 'string') {
       return [];
@@ -120,9 +89,6 @@
     return out;
   }
 
-  /**
-   * @returns {Set<number>}
-   */
   function buildManualDevAllowlistSet() {
     const set = new Set(DEFAULT_MANUAL_DEV_PORT_SET);
     const text = extraDevPortsInput?.value ?? '';
@@ -132,10 +98,6 @@
     return set;
   }
 
-  /**
-   * @param {PortRow[]} data
-   * @returns {PortRow[]}
-   */
   function applyManualDevFilter(data) {
     if (devManualPortsOnlyInput?.checked !== true) {
       return data;
@@ -158,7 +120,6 @@
     try {
       localStorage.setItem(EXTRA_DEV_PORTS_STORAGE_KEY, extraDevPortsInput.value);
     } catch {
-      // ignore (private mode, file:// restrictions in some embeds)
     }
   }
 
@@ -172,22 +133,13 @@
         extraDevPortsInput.value = s;
       }
     } catch {
-      // ignore
     }
   }
 
-  /**
-   * @param {number} port
-   * @returns {boolean}
-   */
   function isSystemPort(port) {
     return port >= 1 && port <= WELL_KNOWN_PORT_MAX;
   }
 
-  /**
-   * @param {PortRow[]} data
-   * @returns {PortRow[]}
-   */
   function applySystemPortFilter(data) {
     const show = showSystemPortsInput?.checked === true;
     if (show) {
@@ -196,10 +148,6 @@
     return data.filter((r) => !isSystemPort(r.port));
   }
 
-  /**
-   * @param {number} n
-   * @returns {string}
-   */
   function countLabel(n) {
     if (n === 1) {
       return '1 entry';
@@ -207,10 +155,6 @@
     return `${n} entries`;
   }
 
-  /**
-   * @param {string} message
-   * @param {boolean} isError
-   */
   function setStatus(message, isError) {
     if (!statusBar) {
       return;
@@ -219,9 +163,6 @@
     statusBar.classList.toggle('status-bar--error', isError);
   }
 
-  /**
-   * @param {boolean} isLoading
-   */
   function setLoading(isLoading) {
     if (loading) {
       loading.hidden = !isLoading;
@@ -231,11 +172,6 @@
     }
   }
 
-  /**
-   * @param {PortRow} row
-   * @param {string} q
-   * @returns {boolean}
-   */
   function rowMatchesFilter(row, q) {
     if (!q) {
       return true;
@@ -250,9 +186,6 @@
     );
   }
 
-  /**
-   * @param {PortRow[]} source
-   */
   function applyFilterToDom(source) {
     if (!rowsBody || !countBadge || !emptyHint) {
       return;
@@ -289,11 +222,6 @@
     emptyHint.hidden = filtered.length > 0;
   }
 
-  /**
-   * @param {string} text
-   * @param {string} [className]
-   * @returns {HTMLTableCellElement}
-   */
   function tdText(text, className) {
     const td = document.createElement('td');
     if (className) {
@@ -303,9 +231,6 @@
     return td;
   }
 
-  /**
-   * @param {PortRow[] | null} [rows]
-   */
   function renderFromCache(rows) {
     const data = rows ?? allRows;
     if (!data) {
@@ -348,19 +273,11 @@
     }
   }
 
-  /**
-   * @param {number} pid
-   * @param {string} name
-   */
   async function confirmKill(pid, name) {
     const line = `Kill process "${name}" (PID ${String(pid)})? This cannot be undone.`;
-    // eslint-disable-next-line no-alert
     return window.confirm(line);
   }
 
-  /**
-   * @param {Event} ev
-   */
   async function onTableClick(ev) {
     const t = ev.target;
     if (!(t instanceof HTMLButtonElement)) {

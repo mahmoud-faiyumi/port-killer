@@ -6,23 +6,14 @@ const { getPorts } = require('./src/portScanner');
 const { killProcessByPid } = require('./src/processKiller');
 const { startAutoUpdateChecks } = require('./src/updater');
 
-/**
- * @returns {string}
- */
 function getPreloadPath() {
   return path.join(__dirname, 'preload.js');
 }
 
-/**
- * @returns {string}
- */
 function getRendererPath() {
   return path.join(__dirname, 'renderer', 'index.html');
 }
 
-/**
- * @returns {string | undefined}
- */
 function getWindowIconPath() {
   const ico = path.join(__dirname, 'build', 'port-killer.ico');
   const webp = path.join(__dirname, 'build', 'port-killer.webp');
@@ -38,9 +29,6 @@ function getWindowIconPath() {
   return undefined;
 }
 
-/**
- * @returns {void}
- */
 function createWindow() {
   const icon = getWindowIconPath();
   const mainWindow = new BrowserWindow({
@@ -63,12 +51,9 @@ function createWindow() {
 
   mainWindow.loadFile(getRendererPath());
 
-  // External links: open in default browser
   mainWindow.webContents.setWindowOpenHandler((details) => {
     if (details.url) {
-      shell.openExternal(details.url).catch(() => {
-        // ignore; no user-visible action required
-      });
+      shell.openExternal(details.url).catch(() => {});
     }
     return { action: 'deny' };
   });
