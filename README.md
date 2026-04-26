@@ -2,7 +2,7 @@
 
 # Port Killer
 
-**See what’s listening on TCP ports on Windows — filter fast, then end a process by PID when you need the port back.**
+**See what’s listening on TCP ports on Windows - filter fast, then end a process by PID when you need the port back.**
 
 <br/>
 
@@ -51,7 +51,7 @@ Local dev left **Angular**, **Vite**, **webpack**, or a random service on a port
 1. Click the **Download for Windows** image above, *or* open the [latest release](https://github.com/mahmoud-faiyumi/port-killer/releases/latest) and download **`Port-Killer-Setup.exe`**.
 2. Run the installer and start **Port Killer** from the Start menu or desktop shortcut.
 
-If the direct link returns **404**, the release may not include that filename yet — use the **Assets** list on the release page.
+If the direct link returns **404**, the release may not include that filename yet - use the **Assets** list on the release page.
 
 ## Run from source
 
@@ -82,13 +82,7 @@ Produces **`dist\Port-Killer-Setup.exe`**, **`dist\Port-Killer-Setup.exe.blockma
 
 ## Releasing (maintainers)
 
-Bump **`version`** in `package.json`, tag **`v`** + that version (example: **`v1.0.2`**), push the tag — CI can publish — or upload the three artifacts from `dist\` manually. Installed clients need **`latest.yml`** + installer + blockmap on the **same** release for updates to apply.
-
-## Icons (maintainers)
-
-```bash
-npm run generate:icon
-```
+Bump **`version`** in `package.json`, tag **`v`** + that version (example: **`v1.0.2`**), push the tag - CI can publish - or upload the three artifacts from `dist\` manually. Installed clients need **`latest.yml`** + installer + blockmap on the **same** release for updates to apply.
 
 Regenerates ICO/WebP under `build\` when branding assets change.
 
