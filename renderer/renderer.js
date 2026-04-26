@@ -3,6 +3,7 @@
 
   const rowsBody = document.getElementById('rows-body');
   const refreshBtn = document.querySelector('#refresh-btn');
+  const checkUpdatesBtn = document.querySelector('#check-updates-btn');
   const filterInput = document.querySelector('#filter-input');
   const showSystemPortsInput = document.querySelector('#show-system-ports');
   const devManualPortsOnlyInput = document.querySelector('#dev-manual-ports-only');
@@ -56,9 +57,7 @@
       6379,
       ...portRange(7000, 7010),
       ...portRange(8000, 8010),
-      8080,
-      8081,
-      8082,
+      ...portRange(8080, 8089),
       8443,
       8888,
       9000,
@@ -155,12 +154,15 @@
     return `${n} entries`;
   }
 
-  function setStatus(message, isError) {
+  function setStatus(message, kind) {
     if (!statusBar) {
       return;
     }
     statusBar.textContent = message;
+    const isError = kind === 'error';
+    const isSuccess = kind === 'success';
     statusBar.classList.toggle('status-bar--error', isError);
+    statusBar.classList.toggle('status-bar--success', isSuccess && !isError);
   }
 
   function setLoading(isLoading) {
@@ -177,13 +179,89 @@
       return true;
     }
     const s = q.toLowerCase();
-    return (
+    if (
       String(row.port).includes(s) ||
       row.localAddress.toLowerCase().includes(s) ||
       String(row.pid).includes(s) ||
       row.processName.toLowerCase().includes(s) ||
-      row.state.toLowerCase().includes(s)
-    );
+      String(row.state || '').toLowerCase().includes(s)
+    ) {
+      return true;
+    }
+    const variants = row.stateVariants;
+    if (Array.isArray(variants)) {
+      for (const v of variants) {
+        const st = String(v.state || '').toLowerCase();
+        const fr = String(v.foreignAddress || '').toLowerCase();
+        if (st.includes(s) || fr.includes(s)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function tcpStateKey(state) {
+    return String(state || '')
+      .toUpperCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^A-Z0-9_]/g, '');
+  }
+
+  function buildStateDetailTable(variants) {
+    const wrap = document.createElement('div');
+    wrap.className = 'state-detail-inner';
+    const cap = document.createElement('p');
+    cap.className = 'state-detail-caption';
+    cap.textContent = 'All TCP states for this socket (same port, address, PID):';
+    wrap.appendChild(cap);
+    const outer = document.createElement('div');
+    outer.className = 'state-detail-table-outer';
+    const tbl = document.createElement('table');
+    tbl.className = 'state-detail-table';
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    const thState = document.createElement('th');
+    thState.scope = 'col';
+    thState.className = 'state-detail-th state-detail-th--state';
+    thState.textContent = 'State';
+    const thRemote = document.createElement('th');
+    thRemote.scope = 'col';
+    thRemote.className = 'state-detail-th state-detail-th--remote';
+    thRemote.textContent = 'Remote endpoint';
+    hr.appendChild(thState);
+    hr.appendChild(thRemote);
+    thead.appendChild(hr);
+    tbl.appendChild(thead);
+    const tb = document.createElement('tbody');
+    for (const v of variants) {
+      const tr = document.createElement('tr');
+      tr.className = 'state-detail-tr';
+      const key = tcpStateKey(v.state);
+      if (key) {
+        tr.dataset.tcpState = key;
+      }
+      const tdState = document.createElement('td');
+      tdState.className = 'state-detail-td state-detail-td--state';
+      const pill = document.createElement('span');
+      pill.className = 'state-detail-pill';
+      if (key) {
+        pill.dataset.tcpState = key;
+      }
+      pill.textContent = String(v.state || '—');
+      tdState.appendChild(pill);
+      tr.appendChild(tdState);
+      const remote = v.foreignAddress != null && String(v.foreignAddress) !== '' ? String(v.foreignAddress) : '—';
+      const tdRemote = document.createElement('td');
+      tdRemote.className = 'state-detail-td state-detail-td--remote mono';
+      tdRemote.textContent = remote;
+      tr.appendChild(tdRemote);
+      tb.appendChild(tr);
+    }
+    tbl.appendChild(tb);
+    outer.appendChild(tbl);
+    wrap.appendChild(outer);
+    return wrap;
   }
 
   function applyFilterToDom(source) {
@@ -198,24 +276,74 @@
       : afterManual;
 
     const frag = document.createDocumentFragment();
+    let visualRow = 0;
     for (const r of filtered) {
+      const variants = Array.isArray(r.stateVariants) ? r.stateVariants : null;
+      const expandable = variants != null && variants.length > 1;
+
       const tr = document.createElement('tr');
-      tr.appendChild(tdText(String(r.port), 'mono'));
-      tr.appendChild(tdText(r.localAddress, 'mono'));
-      tr.appendChild(tdText(String(r.pid), 'mono'));
-      tr.appendChild(tdText(r.processName, undefined));
-      tr.appendChild(tdText(r.state, undefined));
+      tr.className = 'row-main';
+      if (visualRow % 2 === 1) {
+        tr.classList.add('row-alt');
+      }
+      visualRow += 1;
+      if (expandable) {
+        tr.classList.add('row-expandable');
+        tr.setAttribute('role', 'button');
+        tr.setAttribute('tabindex', '0');
+        tr.setAttribute('aria-expanded', 'false');
+        tr.title = 'Click to show all TCP states for this listener';
+      }
+
+      tr.appendChild(tdText(String(r.port), 'mono col-port'));
+      tr.appendChild(tdText(r.localAddress, 'mono col-address'));
+      tr.appendChild(tdText(String(r.pid), 'mono col-pid'));
+      tr.appendChild(tdText(r.processName, 'col-process'));
+
+      const stateTd = document.createElement('td');
+      const stateUpper = String(r.state || '').toUpperCase().replace(/\s+/g, '_');
+      stateTd.classList.add('td-state');
+      if (['LISTENING', 'ESTABLISHED', 'TIME_WAIT', 'CLOSE_WAIT', 'SYN_SENT', 'FIN_WAIT_1', 'FIN_WAIT_2'].includes(stateUpper)) {
+        stateTd.classList.add(`td-state--${stateUpper.toLowerCase()}`);
+      }
+      if (expandable) {
+        stateTd.classList.add('state-cell-wrap');
+        const line = document.createElement('span');
+        line.className = 'state-cell-line';
+        line.appendChild(document.createTextNode(String(r.state || '—')));
+        const hint = document.createElement('span');
+        hint.className = 'row-state-hint';
+        hint.textContent = ` (+${String(variants.length - 1)})`;
+        hint.setAttribute('aria-hidden', 'true');
+        line.appendChild(hint);
+        stateTd.appendChild(line);
+      } else {
+        stateTd.appendChild(document.createTextNode(String(r.state || '—')));
+      }
+      tr.appendChild(stateTd);
+
       const actionTd = document.createElement('td');
       actionTd.className = 'col-action';
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'btn btn-danger';
+      btn.className = 'btn btn-danger btn-table';
       btn.textContent = 'Kill';
       btn.dataset.pid = String(r.pid);
       btn.dataset.name = r.processName;
       actionTd.appendChild(btn);
       tr.appendChild(actionTd);
       frag.appendChild(tr);
+
+      if (expandable) {
+        const detailTr = document.createElement('tr');
+        detailTr.className = 'row-detail';
+        detailTr.hidden = true;
+        const detailTd = document.createElement('td');
+        detailTd.colSpan = 6;
+        detailTd.appendChild(buildStateDetailTable(variants));
+        detailTr.appendChild(detailTd);
+        frag.appendChild(detailTr);
+      }
     }
     rowsBody.replaceChildren(frag);
     countBadge.textContent = countLabel(filtered.length);
@@ -242,30 +370,30 @@
   async function refresh() {
     const api = window.portKiller;
     if (!api) {
-      setStatus('App bridge not available. Restart the application.', true);
+      setStatus('App bridge not available. Restart the application.', 'error');
       return;
     }
     setLoading(true);
-    setStatus('Loading…', false);
+    setStatus('Loading…');
     try {
       const res = await api.getPorts();
       if (!res || typeof res !== 'object') {
-        setStatus('Unexpected response.', true);
+        setStatus('Unexpected response.', 'error');
         return;
       }
       if (res.ok && Array.isArray(res.data)) {
         allRows = res.data;
-        setStatus('Ready.', false);
+        setStatus('Ready.');
         renderFromCache();
       } else {
         const err = 'error' in res && res.error != null ? String(res.error) : 'Unknown error';
-        setStatus(`Failed: ${err}`, true);
+        setStatus(`Failed: ${err}`, 'error');
         allRows = [];
         renderFromCache([]);
       }
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
-      setStatus(`Failed: ${m}`, true);
+      setStatus(`Failed: ${m}`, 'error');
       allRows = [];
       renderFromCache([]);
     } finally {
@@ -278,45 +406,123 @@
     return window.confirm(line);
   }
 
-  async function onTableClick(ev) {
-    const t = ev.target;
-    if (!(t instanceof HTMLButtonElement)) {
+  function toggleRowDetail(mainRow) {
+    const detail = mainRow.nextElementSibling;
+    if (!detail || !detail.classList.contains('row-detail')) {
       return;
     }
-    if (!t.classList.contains('btn-danger') || t.dataset.pid == null) {
+    detail.hidden = !detail.hidden;
+    const open = !detail.hidden;
+    mainRow.classList.toggle('row-expanded', open);
+    mainRow.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  async function onRowsBodyClick(ev) {
+    const btn = ev.target.closest('button.btn-danger');
+    if (btn instanceof HTMLButtonElement && btn.dataset.pid != null) {
+      const pid = Number.parseInt(btn.dataset.pid, 10);
+      if (Number.isNaN(pid)) {
+        return;
+      }
+      const name = btn.dataset.name != null && btn.dataset.name !== '' ? btn.dataset.name : 'unknown';
+      const ok = await confirmKill(pid, name);
+      if (!ok) {
+        return;
+      }
+      const api = window.portKiller;
+      if (!api) {
+        setStatus('App bridge not available.', 'error');
+        return;
+      }
+      setStatus(`Stopping PID ${String(pid)}…`);
+      const result = await api.killProcess(pid);
+      if (result && result.ok) {
+        setStatus(`Stopped PID ${String(pid)}.`, 'success');
+      } else {
+        const err = result && 'error' in result && result.error != null ? String(result.error) : 'Failed';
+        setStatus(`Could not stop PID ${String(pid)}: ${err}`, 'error');
+      }
+      await refresh();
       return;
     }
-    const pid = Number.parseInt(t.dataset.pid, 10);
-    if (Number.isNaN(pid)) {
+
+    const mainRow = ev.target.closest('tr.row-expandable');
+    if (mainRow instanceof HTMLTableRowElement && rowsBody && rowsBody.contains(mainRow)) {
+      toggleRowDetail(mainRow);
+    }
+  }
+
+  function onRowsBodyKeydown(ev) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') {
       return;
     }
-    const name = t.dataset.name != null && t.dataset.name !== '' ? t.dataset.name : 'unknown';
-    const ok = await confirmKill(pid, name);
-    if (!ok) {
+    const mainRow = ev.target.closest('tr.row-expandable');
+    if (!(mainRow instanceof HTMLTableRowElement) || !rowsBody || !rowsBody.contains(mainRow)) {
       return;
     }
-    const api = window.portKiller;
-    if (!api) {
-      setStatus('App bridge not available.', true);
-      return;
-    }
-    setStatus(`Stopping PID ${String(pid)}…`, false);
-    const result = await api.killProcess(pid);
-    if (result && result.ok) {
-      setStatus(`Stopped PID ${String(pid)}.`, false);
-    } else {
-      const err = result && 'error' in result && result.error != null ? String(result.error) : 'Failed';
-      setStatus(`Could not stop PID ${String(pid)}: ${err}`, true);
-    }
-    await refresh();
+    ev.preventDefault();
+    toggleRowDetail(mainRow);
   }
 
   if (rowsBody) {
-    rowsBody.addEventListener('click', onTableClick);
+    rowsBody.addEventListener('click', (e) => {
+      void onRowsBodyClick(e);
+    });
+    rowsBody.addEventListener('keydown', onRowsBodyKeydown);
   }
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => {
       void refresh();
+    });
+  }
+
+  async function checkForUpdatesFromUi() {
+    const api = window.portKiller;
+    if (!api || typeof api.checkForUpdates !== 'function') {
+      setStatus('Update check is not available.', 'error');
+      return;
+    }
+    if (checkUpdatesBtn) {
+      checkUpdatesBtn.disabled = true;
+    }
+    setStatus('Checking for updates…');
+    try {
+      const res = await api.checkForUpdates();
+      if (!res || typeof res !== 'object') {
+        setStatus('Unexpected response from update check.', 'error');
+        return;
+      }
+      if (res.ok === false) {
+        const msg =
+          res.message != null
+            ? String(res.message)
+            : res.reason === 'not-applicable'
+              ? 'Updates only run in the installed Windows app.'
+              : 'Could not check for updates.';
+        setStatus(msg, res.reason === 'not-applicable' ? undefined : 'error');
+        return;
+      }
+      if (res.status === 'available' && res.version != null) {
+        setStatus(
+          `Update available: v${String(res.version)}. Follow the system notification when the download finishes, or restart the app after installing.`,
+          'success',
+        );
+        return;
+      }
+      setStatus("You're on the latest version.", 'success');
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setStatus(`Update check failed: ${m}`, 'error');
+    } finally {
+      if (checkUpdatesBtn) {
+        checkUpdatesBtn.disabled = false;
+      }
+    }
+  }
+
+  if (checkUpdatesBtn) {
+    checkUpdatesBtn.addEventListener('click', () => {
+      void checkForUpdatesFromUi();
     });
   }
   if (filterInput) {

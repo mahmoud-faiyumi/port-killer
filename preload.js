@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld('portKiller', {
   killProcess(pid) {
     return ipcRenderer.invoke('kill-process', pid);
   },
+  checkForUpdates() {
+    return ipcRenderer.invoke('check-for-updates');
+  },
 });

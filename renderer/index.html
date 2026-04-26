@@ -13,17 +13,32 @@
   <body>
     <div class="app">
       <header class="toolbar">
-        <h1 class="title">Port Killer</h1>
-        <div class="toolbar-actions">
+        <div class="toolbar-brand">
+          <h1 class="title">Port Killer</h1>
+          <p class="tagline">TCP listeners · filter · end process by PID</p>
+        </div>
+        <div class="toolbar-actions" role="group" aria-label="Primary actions">
+          <button type="button" class="btn btn-ghost" id="check-updates-btn" title="Query GitHub for a newer release">
+            Check updates
+          </button>
+          <button type="button" class="btn btn-primary" id="refresh-btn" title="Reload port list">Refresh</button>
+        </div>
+      </header>
+
+      <section class="filters-panel" aria-label="Filters">
+        <div class="filters-row">
           <label class="sr-only" for="filter-input">Filter by port, address, PID, or name</label>
           <input
             id="filter-input"
             class="filter-input"
             type="search"
-            placeholder="Filter (port, address, PID, name)…"
+            placeholder="Filter by port, address, PID, or name…"
             autocomplete="off"
             spellcheck="false"
           />
+          <span class="badge" id="count-badge" aria-live="polite">0 entries</span>
+        </div>
+        <div class="filters-row filters-row--options">
           <label class="check-label" title="Show IANA well-known / privileged range (1–1023)">
             <input type="checkbox" id="show-system-ports" />
             <span>Show system ports</span>
@@ -37,20 +52,18 @@
               type="text"
               class="extra-ports-input"
               id="extra-dev-ports"
-              placeholder="Extra: 9xxx, 7xxx"
+              placeholder="Extra ports: 9000, 7777"
               inputmode="numeric"
               autocomplete="off"
               spellcheck="false"
               disabled
             />
           </div>
-          <span class="badge" id="count-badge" aria-live="polite">0 entries</span>
-          <button type="button" class="btn btn-primary" id="refresh-btn" title="Refresh list">
-            Refresh
-          </button>
         </div>
-      </header>
+      </section>
+
       <div class="status-bar" id="status-bar" role="status" aria-live="polite"></div>
+
       <div class="table-wrap" role="region" aria-label="Listening ports" tabindex="0">
         <div class="loading-overlay" id="loading" hidden>
           <div class="spinner" aria-hidden="true"></div>
@@ -64,7 +77,7 @@
               <th scope="col">PID</th>
               <th scope="col">Process</th>
               <th scope="col">State</th>
-              <th scope="col" class="col-action">Action</th>
+              <th scope="col" class="col-action th-action">Action</th>
             </tr>
           </thead>
           <tbody id="rows-body"></tbody>

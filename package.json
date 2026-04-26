@@ -1,6 +1,6 @@
 {
   "name": "port-killer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "commonjs",
   "description": "Windows desktop app to list TCP ports and kill processes by PID",
   "main": "main.js",
@@ -23,6 +23,8 @@
     "to-ico": "^1.1.5"
   },
   "build": {
+    "afterPack": "./scripts/after-pack.cjs",
+    "compression": "maximum",
     "appId": "com.portkiller.app",
     "productName": "Port Killer",
     "icon": "build/port-killer.webp",

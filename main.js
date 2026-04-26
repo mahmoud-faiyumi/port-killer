@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const { getPorts } = require('./src/portScanner');
 const { killProcessByPid } = require('./src/processKiller');
-const { startAutoUpdateChecks } = require('./src/updater');
+const { startAutoUpdateChecks, checkForUpdatesManual } = require('./src/updater');
 
 function getPreloadPath() {
   return path.join(__dirname, 'preload.js');
@@ -92,3 +92,5 @@ ipcMain.handle('kill-process', async (_event, rawPid) => {
   }
   return killProcessByPid(pid);
 });
+
+ipcMain.handle('check-for-updates', () => checkForUpdatesManual());

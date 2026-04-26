@@ -106,6 +106,72 @@ function parseWindowsNetstatTcpLine(line) {
   return { local, foreign, state, pid };
 }
 
+function windowsTcpStateRank(state) {
+  const s = String(state || '').toUpperCase();
+  if (s === 'LISTENING') {
+    return 100;
+  }
+  if (s === 'SYN_RECEIVED' || s === 'SYN_SENT') {
+    return 60;
+  }
+  if (s === 'ESTABLISHED') {
+    return 40;
+  }
+  if (s === 'CLOSE_WAIT' || s === 'FIN_WAIT_1' || s === 'FIN_WAIT_2' || s === 'TIME_WAIT') {
+    return 20;
+  }
+  return 0;
+}
+
+function pickPreferredWindowsRow(existing, candidate) {
+  const re = windowsTcpStateRank(existing.state);
+  const rc = windowsTcpStateRank(candidate.state);
+  if (rc > re) {
+    return candidate;
+  }
+  if (re > rc) {
+    return existing;
+  }
+  return existing;
+}
+
+function buildWindowsStateVariants(rows) {
+  const seen = new Map();
+  for (const r of rows) {
+    const stateKey = String(r.state || '').toUpperCase();
+    const foreign = r.foreignAddress == null || r.foreignAddress === '' ? '—' : String(r.foreignAddress);
+    const dedupeKey = `${stateKey}\t${foreign}`;
+    if (!seen.has(dedupeKey)) {
+      seen.set(dedupeKey, {
+        state: r.state || 'UNKNOWN',
+        foreignAddress: foreign === '—' ? '' : foreign,
+      });
+    }
+  }
+  const list = Array.from(seen.values());
+  list.sort((a, b) => windowsTcpStateRank(b.state) - windowsTcpStateRank(a.state));
+  return list;
+}
+
+function collapseWindowsGroup(rows) {
+  if (rows.length === 0) {
+    return null;
+  }
+  let best = rows[0];
+  for (let i = 1; i < rows.length; i += 1) {
+    best = pickPreferredWindowsRow(best, rows[i]);
+  }
+  const variants = buildWindowsStateVariants(rows);
+  if (variants.length <= 1) {
+    return { ...best };
+  }
+  return {
+    ...best,
+    state: best.state,
+    stateVariants: variants,
+  };
+}
+
 async function getPortsWindows() {
   const pidToName = await loadPidToNameMapWindows();
   const { stdout } = await execFileAsync('netstat', ['-ano'], {
@@ -113,7 +179,7 @@ async function getPortsWindows() {
     encoding: 'utf8',
   });
   const lines = stdout.split(/\r?\n/);
-  const byKey = new Map();
+  const groups = new Map();
 
   for (const line of lines) {
     const parsed = parseWindowsNetstatTcpLine(line);
@@ -125,13 +191,24 @@ async function getPortsWindows() {
     if (!row) {
       continue;
     }
-    const key = `${row.port}|${row.localAddress}|${row.pid}|${row.state}`;
-    if (!byKey.has(key)) {
-      byKey.set(key, row);
+    const key = `${row.port}|${row.localAddress}|${row.pid}`;
+    const list = groups.get(key);
+    if (list) {
+      list.push(row);
+    } else {
+      groups.set(key, [row]);
     }
   }
 
-  return Array.from(byKey.values()).sort((a, b) => a.port - b.port);
+  const out = [];
+  for (const group of groups.values()) {
+    const collapsed = collapseWindowsGroup(group);
+    if (collapsed) {
+      out.push(collapsed);
+    }
+  }
+
+  return out.sort((a, b) => a.port - b.port);
 }
 
 function parseLsofListenLine(line) {
