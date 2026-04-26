@@ -1,0 +1,70 @@
+{
+  "name": "port-killer",
+  "version": "1.0.1",
+  "type": "commonjs",
+  "description": "Cross-platform desktop app to list TCP ports and kill processes by PID",
+  "main": "main.js",
+  "author": "",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "build": "electron-builder",
+    "generate:icon": "node scripts/generate-icon.cjs"
+  },
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "jimp": "^0.22.12",
+    "to-ico": "^1.1.5"
+  },
+  "build": {
+    "appId": "com.portkiller.app",
+    "productName": "Port Killer",
+    "icon": "build/port-killer.webp",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "build/port-killer.ico",
+      "build/port-killer.webp"
+    ],
+    "win": {
+      "icon": "build/port-killer.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.utilities"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mahmoud-faiyumi",
+        "repo": "port-killer"
+      }
+    ]
+  }
+}

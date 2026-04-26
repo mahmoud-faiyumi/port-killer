@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Port Killer</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="toolbar">
+        <h1 class="title">Port Killer</h1>
+        <div class="toolbar-actions">
+          <label class="sr-only" for="filter-input">Filter by port, address, PID, or name</label>
+          <input
+            id="filter-input"
+            class="filter-input"
+            type="search"
+            placeholder="Filter (port, address, PID, name)…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <label class="check-label" title="Show IANA well-known / privileged range (1–1023)">
+            <input type="checkbox" id="show-system-ports" />
+            <span>Show system ports</span>
+          </label>
+          <div class="filter-group" title="Typical local dev: Angular, Vite, CRA, webpack, etc.">
+            <label class="check-label check-label--block">
+              <input type="checkbox" id="dev-manual-ports-only" checked />
+              <span>Dev / manual ports only</span>
+            </label>
+            <input
+              type="text"
+              class="extra-ports-input"
+              id="extra-dev-ports"
+              placeholder="Extra: 9xxx, 7xxx"
+              inputmode="numeric"
+              autocomplete="off"
+              spellcheck="false"
+              disabled
+            />
+          </div>
+          <span class="badge" id="count-badge" aria-live="polite">0 entries</span>
+          <button type="button" class="btn btn-primary" id="refresh-btn" title="Refresh list">
+            Refresh
+          </button>
+        </div>
+      </header>
+      <div class="status-bar" id="status-bar" role="status" aria-live="polite"></div>
+      <div class="table-wrap" role="region" aria-label="Listening ports" tabindex="0">
+        <div class="loading-overlay" id="loading" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Scanning…</p>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Port</th>
+              <th scope="col">Address</th>
+              <th scope="col">PID</th>
+              <th scope="col">Process</th>
+              <th scope="col">State</th>
+              <th scope="col" class="col-action">Action</th>
+            </tr>
+          </thead>
+          <tbody id="rows-body"></tbody>
+        </table>
+        <p class="empty-hint" id="empty-hint" hidden>No matching ports.</p>
+      </div>
+    </div>
+    <script src="renderer.js" defer></script>
+  </body>
+</html>
