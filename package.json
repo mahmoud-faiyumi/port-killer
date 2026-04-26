@@ -41,13 +41,15 @@
       "icon": "build/port-killer.ico",
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "Port-Killer-Setup.${ext}"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "artifactName": "Port-Killer.${ext}"
     },
     "mac": {
       "target": [
