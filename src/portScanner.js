@@ -135,6 +135,47 @@ function pickPreferredWindowsRow(existing, candidate) {
   return existing;
 }
 
+function windowsListenAddressDisplayRank(addr) {
+  const a = String(addr ?? '')
+    .trim()
+    .toLowerCase();
+  if (a === '0.0.0.0') {
+    return 400;
+  }
+  if (a === '[::]') {
+    return 390;
+  }
+  if (a === '127.0.0.1') {
+    return 300;
+  }
+  if (a === '[::1]') {
+    return 290;
+  }
+  if (a.startsWith('[fe80:') || a.startsWith('fe80:')) {
+    return 50;
+  }
+  return 100;
+}
+
+function pickDisplayLocalAddress(rows) {
+  if (rows.length === 0) {
+    return '—';
+  }
+  const listening = rows.filter((r) => String(r.state || '').toUpperCase() === 'LISTENING');
+  const pool = listening.length > 0 ? listening : rows;
+  let best = pool[0];
+  let rank = windowsListenAddressDisplayRank(best.localAddress);
+  for (let i = 1; i < pool.length; i += 1) {
+    const r = pool[i];
+    const rk = windowsListenAddressDisplayRank(r.localAddress);
+    if (rk > rank || (rk === rank && String(r.localAddress) < String(best.localAddress))) {
+      rank = rk;
+      best = r;
+    }
+  }
+  return best.localAddress;
+}
+
 function buildWindowsStateVariants(rows) {
   const seen = new Map();
   for (const r of rows) {
@@ -162,12 +203,14 @@ function collapseWindowsGroup(rows) {
     best = pickPreferredWindowsRow(best, rows[i]);
   }
   const variants = buildWindowsStateVariants(rows);
+  const primaryAddress = pickDisplayLocalAddress(rows);
   if (variants.length <= 1) {
-    return { ...best };
+    return { ...best, localAddress: primaryAddress };
   }
   return {
     ...best,
     state: best.state,
+    localAddress: primaryAddress,
     stateVariants: variants,
   };
 }
@@ -191,7 +234,7 @@ async function getPortsWindows() {
     if (!row) {
       continue;
     }
-    const key = `${row.port}|${row.localAddress}|${row.pid}`;
+    const key = `${row.port}|${row.pid}`;
     const list = groups.get(key);
     if (list) {
       list.push(row);
