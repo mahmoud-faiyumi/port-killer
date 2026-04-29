@@ -25,6 +25,10 @@
   const killQueue = document.getElementById('kill-queue');
   const countBadge = document.getElementById('count-badge');
   const statusBar = document.getElementById('status-bar');
+  const updatePanel = document.getElementById('update-panel');
+  const updateText = document.getElementById('update-text');
+  const updateProgress = document.getElementById('update-progress');
+  const installUpdateBtn = document.getElementById('install-update-btn');
   const loading = document.getElementById('loading');
   const emptyHint = document.getElementById('empty-hint');
 
@@ -85,6 +89,7 @@
   let currentSettings = null;
   let activeKillJob = null;
   let favoritePortsDraft = [];
+  let latestUpdateState = null;
 
   function parseCommaSeparatedPorts(raw) {
     if (!raw || typeof raw !== 'string') {
@@ -205,6 +210,62 @@
     if (freeProtectedBtn) {
       freeProtectedBtn.disabled = isLoading;
     }
+  }
+
+  function formatUpdatePercent(percent) {
+    if (!Number.isFinite(percent)) {
+      return '0%';
+    }
+    return `${Math.max(0, Math.min(100, percent)).toFixed(0)}%`;
+  }
+
+  function renderUpdateState(state) {
+    latestUpdateState = state;
+    if (!updatePanel || !updateText || !updateProgress || !installUpdateBtn || !state || typeof state !== 'object') {
+      return;
+    }
+    const status = String(state.status || '');
+    if (status === '' || status === 'idle') {
+      updatePanel.hidden = true;
+      return;
+    }
+    updatePanel.hidden = false;
+    updateProgress.hidden = true;
+    installUpdateBtn.hidden = true;
+
+    if (status === 'checking') {
+      updateText.textContent = 'Checking for updates...';
+      return;
+    }
+    if (status === 'available') {
+      updateText.textContent = state.version
+        ? `Update v${String(state.version)} available. Download started...`
+        : 'Update available. Download started...';
+      return;
+    }
+    if (status === 'downloading') {
+      const percent = Number(state.percent || 0);
+      updateText.textContent = `Downloading update... ${formatUpdatePercent(percent)}`;
+      updateProgress.hidden = false;
+      updateProgress.value = Math.max(0, Math.min(100, percent));
+      return;
+    }
+    if (status === 'downloaded') {
+      updateText.textContent = state.version
+        ? `Update v${String(state.version)} is ready to install.`
+        : 'Update is ready to install.';
+      installUpdateBtn.hidden = false;
+      return;
+    }
+    if (status === 'up-to-date') {
+      updateText.textContent = "You're on the latest version.";
+      return;
+    }
+    if (status === 'error') {
+      updateText.textContent = state.message ? `Update error: ${String(state.message)}` : 'Update failed.';
+      return;
+    }
+    updateText.textContent = 'Updater status changed.';
   }
 
   function showKillQueue(message) {
@@ -362,6 +423,25 @@
         stateTd.appendChild(document.createTextNode(String(r.state || '—')));
       }
       tr.appendChild(stateTd);
+      const favoriteTd = document.createElement('td');
+      favoriteTd.className = 'col-favorite';
+      const favoriteBtn = document.createElement('button');
+      favoriteBtn.type = 'button';
+      favoriteBtn.className = 'btn btn-table btn-favorite-toggle';
+      favoriteBtn.dataset.favoritePort = String(r.port);
+      const favorite = isFavoritePort(r.port);
+      const glyph = document.createElement('span');
+      glyph.className = 'favorite-glyph';
+      glyph.textContent = favorite ? '★' : '☆';
+      favoriteBtn.appendChild(glyph);
+      favoriteBtn.classList.toggle('btn-favorite-toggle--active', favorite);
+      favoriteBtn.setAttribute(
+        'aria-label',
+        favorite ? `Remove port ${String(r.port)} from favorites` : `Add port ${String(r.port)} to favorites`,
+      );
+      favoriteBtn.title = favorite ? 'Remove from favorites' : 'Add to favorites';
+      favoriteTd.appendChild(favoriteBtn);
+      tr.appendChild(favoriteTd);
       const actionTd = document.createElement('td');
       actionTd.className = 'col-action';
       const btn = document.createElement('button');
@@ -379,7 +459,7 @@
         detailTr.className = 'row-detail';
         detailTr.hidden = true;
         const detailTd = document.createElement('td');
-        detailTd.colSpan = 6;
+        detailTd.colSpan = 7;
         detailTd.appendChild(buildStateDetailTable(variants));
         detailTr.appendChild(detailTd);
         frag.appendChild(detailTr);
@@ -508,6 +588,28 @@
     }
     favoritePortsList.replaceChildren(frag);
     updateProtectedPortsModalFeedback();
+  }
+
+  function isFavoritePort(port) {
+    const ports = Array.isArray(currentSettings?.protectedPorts) ? currentSettings.protectedPorts : [];
+    return ports.includes(port);
+  }
+
+  async function toggleFavoritePort(port) {
+    const existing = Array.isArray(currentSettings?.protectedPorts) ? currentSettings.protectedPorts : [];
+    const nextSet = new Set(existing);
+    const currentlyFavorite = nextSet.has(port);
+    if (currentlyFavorite) {
+      nextSet.delete(port);
+    } else {
+      nextSet.add(port);
+    }
+    const next = Array.from(nextSet).sort((a, b) => a - b);
+    await saveSettingsFromUi({ protectedPorts: next });
+    setStatus(
+      currentlyFavorite ? `Removed ${String(port)} from favorite ports.` : `Added ${String(port)} to favorite ports.`,
+      'success',
+    );
   }
 
   function addFavoritePortFromInput() {
@@ -663,6 +765,25 @@
   }
 
   async function onRowsBodyClick(ev) {
+    const favoriteBtn = ev.target.closest('button.btn-favorite-toggle');
+    if (favoriteBtn instanceof HTMLButtonElement && favoriteBtn.dataset.favoritePort != null) {
+      const port = Number.parseInt(favoriteBtn.dataset.favoritePort, 10);
+      if (!Number.isInteger(port)) {
+        return;
+      }
+      favoriteBtn.disabled = true;
+      try {
+        await toggleFavoritePort(port);
+        renderFromCache();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Could not update favorite port ${String(port)}: ${message}`, 'error');
+      } finally {
+        favoriteBtn.disabled = false;
+      }
+      return;
+    }
+
     const btn = ev.target.closest('button.btn-danger');
     if (btn instanceof HTMLButtonElement && btn.dataset.pid != null) {
       const pid = Number.parseInt(btn.dataset.pid, 10);
@@ -713,6 +834,7 @@
       checkUpdatesBtn.disabled = true;
     }
     setStatus('Checking for updates…');
+    renderUpdateState({ status: 'checking' });
     try {
       const res = await api.checkForUpdates();
       if (!res || typeof res !== 'object') {
@@ -725,8 +847,10 @@
       }
       if (res.status === 'available' && res.version != null) {
         setStatus(`Update available: v${String(res.version)}.`, 'success');
+        renderUpdateState({ status: 'available', version: res.version });
       } else {
         setStatus("You're on the latest version.", 'success');
+        renderUpdateState({ status: 'up-to-date' });
       }
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
@@ -734,6 +858,36 @@
     } finally {
       if (checkUpdatesBtn) {
         checkUpdatesBtn.disabled = false;
+      }
+    }
+  }
+
+  async function installDownloadedUpdateFromUi() {
+    const api = window.portKiller;
+    if (!api || typeof api.installDownloadedUpdate !== 'function') {
+      setStatus('Install update action is not available.', 'error');
+      return;
+    }
+    if (latestUpdateState?.status !== 'downloaded') {
+      setStatus('The update is not ready to install yet.', 'error');
+      return;
+    }
+    if (installUpdateBtn) {
+      installUpdateBtn.disabled = true;
+    }
+    setStatus('Closing app to install update...');
+    try {
+      const res = await api.installDownloadedUpdate();
+      if (!res || res.ok !== true) {
+        setStatus(`Could not install update: ${String(res?.error || 'Failed')}`, 'error');
+        if (installUpdateBtn) {
+          installUpdateBtn.disabled = false;
+        }
+      }
+    } catch (error) {
+      setStatus(`Could not install update: ${error instanceof Error ? error.message : String(error)}`, 'error');
+      if (installUpdateBtn) {
+        installUpdateBtn.disabled = false;
       }
     }
   }
@@ -775,6 +929,9 @@
   }
   if (checkUpdatesBtn) {
     checkUpdatesBtn.addEventListener('click', () => void checkForUpdatesFromUi());
+  }
+  if (installUpdateBtn) {
+    installUpdateBtn.addEventListener('click', () => void installDownloadedUpdateFromUi());
   }
   if (filterInput) {
     filterInput.addEventListener('input', () => renderFromCache());
@@ -890,10 +1047,18 @@
   if (api && typeof api.onHistoryUpdated === 'function') {
     api.onHistoryUpdated(() => void refreshHistory());
   }
+  if (api && typeof api.onUpdaterEvent === 'function') {
+    api.onUpdaterEvent((state) => {
+      renderUpdateState(state);
+    });
+  }
 
   async function boot() {
     if (api && typeof api.getSettings === 'function') {
       applySettingsToUi(await api.getSettings());
+    }
+    if (api && typeof api.getUpdateState === 'function') {
+      renderUpdateState(await api.getUpdateState());
     }
     await refresh();
     await refreshHistory();

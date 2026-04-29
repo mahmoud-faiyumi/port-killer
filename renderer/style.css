@@ -283,6 +283,24 @@ body {
   border-color: #3d4d66;
 }
 
+.btn-favorite-ports {
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fcd34d;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(245, 158, 11, 0.08) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(245, 158, 11, 0.12);
+}
+
+.btn-favorite-ports:hover:not(:disabled) {
+  border-color: rgba(245, 158, 11, 0.75);
+  color: #fde68a;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.24) 0%, rgba(245, 158, 11, 0.15) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(245, 158, 11, 0.2), 0 6px 16px rgba(0, 0, 0, 0.28);
+}
+
+.btn-favorite-ports:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -328,6 +346,35 @@ body {
 
 .status-bar--success {
   color: var(--success);
+}
+
+.update-panel {
+  margin-bottom: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-radius: var(--radius-sm);
+  background: rgba(59, 130, 246, 0.1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+}
+
+.update-panel__text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #bfdbfe;
+}
+
+.update-panel__progress {
+  width: 14rem;
+  max-width: 100%;
+  height: 0.75rem;
+}
+
+.update-panel__install-btn {
+  padding: 0.34rem 0.7rem;
+  font-size: 0.78rem;
 }
 
 .kill-queue {
@@ -422,6 +469,12 @@ body {
 
 .data-table th:nth-child(6),
 .data-table td:nth-child(6) {
+  width: 4.2rem;
+  text-align: center;
+}
+
+.data-table th:nth-child(7),
+.data-table td:nth-child(7) {
   width: 5.5rem;
   text-align: right;
   padding-right: 1rem;
@@ -690,6 +743,45 @@ body {
 .data-table .col-action {
   width: 5.5rem;
   white-space: nowrap;
+}
+
+.data-table .col-favorite,
+.data-table .th-favorite {
+  text-align: center;
+}
+
+.btn-favorite-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2.2rem;
+  min-width: 2rem;
+  padding: 0;
+  font-size: 1.05rem;
+  line-height: 0;
+  text-align: center;
+  vertical-align: middle;
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.45);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.favorite-glyph {
+  display: block;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.btn-favorite-toggle:hover:not(:disabled) {
+  color: #fbbf24;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.btn-favorite-toggle--active {
+  color: #fbbf24;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.16);
 }
 
 .data-table .mono {

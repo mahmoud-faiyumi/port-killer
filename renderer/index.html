@@ -65,7 +65,7 @@
         </div>
         <div class="filters-row filters-row--options">
           <div class="settings-group">
-            <button type="button" class="btn btn-ghost" id="protected-ports-btn" title="Edit favorite ports">
+            <button type="button" class="btn btn-ghost btn-favorite-ports" id="protected-ports-btn" title="Edit favorite ports">
               ★ Favorite ports
             </button>
           </div>
@@ -85,6 +85,13 @@
       </section>
 
       <div class="status-bar" id="status-bar" role="status" aria-live="polite"></div>
+      <section class="update-panel" id="update-panel" hidden aria-live="polite">
+        <p class="update-panel__text" id="update-text"></p>
+        <progress class="update-panel__progress" id="update-progress" max="100" value="0" hidden></progress>
+        <button type="button" class="btn btn-primary update-panel__install-btn" id="install-update-btn" hidden>
+          Install update
+        </button>
+      </section>
       <div class="kill-queue" id="kill-queue" hidden></div>
 
       <div class="table-wrap" role="region" aria-label="Listening ports" tabindex="0">
@@ -100,6 +107,7 @@
               <th scope="col">PID</th>
               <th scope="col">Process</th>
               <th scope="col">State</th>
+              <th scope="col" class="col-favorite th-favorite">Favorite</th>
               <th scope="col" class="col-action th-action">Action</th>
             </tr>
           </thead>

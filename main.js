@@ -17,7 +17,13 @@ const { getPorts } = require('./src/portScanner');
 const { killProcessByPid } = require('./src/processKiller');
 const { getRiskLevel } = require('./src/processRisk');
 const { createSettingsStore, sanitizeSettings } = require('./src/userSettings');
-const { startAutoUpdateChecks, checkForUpdatesManual } = require('./src/updater');
+const {
+  startAutoUpdateChecks,
+  checkForUpdatesManual,
+  subscribeToUpdateState,
+  getLastUpdateState,
+  installDownloadedUpdate,
+} = require('./src/updater');
 
 let mainWindow = null;
 let tray = null;
@@ -407,6 +413,12 @@ function createApplicationMenuTemplate() {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(createApplicationMenuTemplate()));
   settingsStore = createSettingsStore(app);
+  subscribeToUpdateState((state) => {
+    const win = getMainWindowOrNull();
+    if (win) {
+      win.webContents.send('updater-event', state);
+    }
+  });
   startAutoUpdateChecks();
   mainWindow = createWindow();
   ensureTray();
@@ -439,6 +451,20 @@ ipcMain.handle('kill-process', async (_event, rawPayload) => {
 });
 
 ipcMain.handle('check-for-updates', () => checkForUpdatesManual());
+ipcMain.handle('get-update-state', () => getLastUpdateState());
+ipcMain.handle('install-downloaded-update', () => {
+  isQuitting = true;
+  try {
+    installDownloadedUpdate();
+    return { ok: true };
+  } catch (error) {
+    isQuitting = false;
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
 ipcMain.handle('get-settings', () => settingsStore.read());
 ipcMain.handle('set-settings', (_event, patch) => {
   const next = settingsStore.write(sanitizeSettings(patch));

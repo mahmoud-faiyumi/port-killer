@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('portKiller', {
   checkForUpdates() {
     return ipcRenderer.invoke('check-for-updates');
   },
+  getUpdateState() {
+    return ipcRenderer.invoke('get-update-state');
+  },
+  installDownloadedUpdate() {
+    return ipcRenderer.invoke('install-downloaded-update');
+  },
   getSettings() {
     return ipcRenderer.invoke('get-settings');
   },
@@ -37,5 +43,13 @@ contextBridge.exposeInMainWorld('portKiller', {
     const listener = () => callback();
     ipcRenderer.on('history-updated', listener);
     return () => ipcRenderer.removeListener('history-updated', listener);
+  },
+  onUpdaterEvent(callback) {
+    if (typeof callback !== 'function') {
+      return () => {};
+    }
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('updater-event', listener);
+    return () => ipcRenderer.removeListener('updater-event', listener);
   },
 });
