@@ -18,6 +18,9 @@
           <p class="tagline">TCP listeners · filter · end process by PID</p>
         </div>
         <div class="toolbar-actions" role="group" aria-label="Primary actions">
+          <button type="button" class="btn btn-primary" id="free-protected-btn" title="Stop processes listening on protected ports">
+            Free protected ports
+          </button>
           <button type="button" class="btn btn-ghost" id="check-updates-btn" title="Query GitHub for a newer release">
             Check updates
           </button>
@@ -60,9 +63,35 @@
             />
           </div>
         </div>
+        <div class="filters-row filters-row--options">
+          <div class="settings-group">
+            <label class="field-label" for="protected-ports-input">Protected ports</label>
+            <input
+              id="protected-ports-input"
+              class="extra-ports-input"
+              type="text"
+              placeholder="3000, 4200, 8080"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <label class="check-label" title="Use taskkill /T so child processes are stopped too">
+            <input type="checkbox" id="kill-tree-input" />
+            <span>Kill process tree</span>
+          </label>
+          <div class="settings-group settings-group--delay">
+            <label class="field-label" for="kill-delay-input">Delay (sec)</label>
+            <input id="kill-delay-input" class="delay-input" type="number" min="0" max="30" step="1" />
+          </div>
+          <label class="check-label" title="Hide window to tray instead of closing the app">
+            <input type="checkbox" id="minimize-to-tray-input" />
+            <span>Minimize to tray on close</span>
+          </label>
+        </div>
       </section>
 
       <div class="status-bar" id="status-bar" role="status" aria-live="polite"></div>
+      <div class="kill-queue" id="kill-queue" hidden></div>
 
       <div class="table-wrap" role="region" aria-label="Listening ports" tabindex="0">
         <div class="loading-overlay" id="loading" hidden>
@@ -84,6 +113,15 @@
         </table>
         <p class="empty-hint" id="empty-hint" hidden>No matching ports.</p>
       </div>
+      <section class="history-panel" aria-label="Kill history">
+        <div class="history-head">
+          <h2>Kill history</h2>
+          <button type="button" class="btn btn-ghost btn-history-refresh" id="history-refresh-btn">Refresh history</button>
+        </div>
+        <ul class="history-list" id="history-list">
+          <li class="history-empty">No actions yet.</li>
+        </ul>
+      </section>
     </div>
     <script src="renderer.js" defer></script>
   </body>

@@ -4,10 +4,38 @@ contextBridge.exposeInMainWorld('portKiller', {
   getPorts() {
     return ipcRenderer.invoke('get-ports');
   },
-  killProcess(pid) {
-    return ipcRenderer.invoke('kill-process', pid);
+  killProcess(payload) {
+    return ipcRenderer.invoke('kill-process', payload);
   },
   checkForUpdates() {
     return ipcRenderer.invoke('check-for-updates');
+  },
+  getSettings() {
+    return ipcRenderer.invoke('get-settings');
+  },
+  setSettings(patch) {
+    return ipcRenderer.invoke('set-settings', patch);
+  },
+  freeProtectedPorts() {
+    return ipcRenderer.invoke('free-protected-ports');
+  },
+  getKillHistory() {
+    return ipcRenderer.invoke('get-kill-history');
+  },
+  onTrayRefresh(callback) {
+    if (typeof callback !== 'function') {
+      return () => {};
+    }
+    const listener = () => callback();
+    ipcRenderer.on('tray-refresh', listener);
+    return () => ipcRenderer.removeListener('tray-refresh', listener);
+  },
+  onHistoryUpdated(callback) {
+    if (typeof callback !== 'function') {
+      return () => {};
+    }
+    const listener = () => callback();
+    ipcRenderer.on('history-updated', listener);
+    return () => ipcRenderer.removeListener('history-updated', listener);
   },
 });

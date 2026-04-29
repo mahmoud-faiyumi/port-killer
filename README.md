@@ -34,7 +34,7 @@ Local dev left **Angular**, **Vite**, **webpack**, or a random service on a port
 
 | | |
 | :--- | :--- |
-| **Scan** | Refresh TCP listeners (Windows uses `netstat`; logic still exists for macOS/Linux if you run from source there). |
+| **Scan** | Refresh TCP listeners from Windows `netstat -ano`. |
 | **Filter** | Search by port, address, PID, process name, or state. |
 | **Dev mode** | Optional “dev / manual ports only” preset plus extra port list (saved in `localStorage`). |
 | **System ports** | Optional show/hide for well-known range **1–1023**. |
@@ -43,7 +43,7 @@ Local dev left **Angular**, **Vite**, **webpack**, or a random service on a port
 
 ## Requirements
 
-- **Windows 10 or later** (x64) for the prebuilt installer.
+- **Windows only** (Windows 10 or later, x64).
 - **[Node.js](https://nodejs.org/)** (LTS recommended) + **npm** only if you run or build from source.
 
 ## Install
@@ -53,7 +53,7 @@ Local dev left **Angular**, **Vite**, **webpack**, or a random service on a port
 
 If the direct link returns **404**, the release may not include that filename yet - use the **Assets** list on the release page.
 
-## Run from source
+## Run from source (Windows only)
 
 ```bash
 git clone https://github.com/mahmoud-faiyumi/port-killer.git

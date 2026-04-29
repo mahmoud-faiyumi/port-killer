@@ -15,7 +15,10 @@ function isSafePid(value) {
   return value < 2 ** 31;
 }
 
-async function killProcessByPid(pid) {
+async function killProcessByPid(pid, options = {}) {
+  if (process.platform !== 'win32') {
+    return { ok: false, error: 'Port Killer supports Windows only.' };
+  }
   if (!isSafePid(pid)) {
     return { ok: false, error: 'Invalid PID' };
   }
@@ -23,13 +26,14 @@ async function killProcessByPid(pid) {
   if (!POSITIVE_INT_PATTERN.test(pidString)) {
     return { ok: false, error: 'Invalid PID' };
   }
+  const tree = options && options.tree === true;
 
   try {
-    if (process.platform === 'win32') {
-      await execFileAsync('taskkill', ['/PID', pidString, '/F'], { windowsHide: true });
-    } else {
-      await execFileAsync('kill', ['-9', pidString]);
+    const args = ['/PID', pidString, '/F'];
+    if (tree) {
+      args.push('/T');
     }
+    await execFileAsync('taskkill', args, { windowsHide: true });
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

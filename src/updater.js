@@ -14,9 +14,6 @@ function attachAutoUpdaterErrorLogging() {
 }
 
 function startAutoUpdateChecks() {
-  if (process.platform !== 'win32') {
-    return;
-  }
   if (!app.isPackaged) {
     return;
   }
@@ -29,13 +26,6 @@ function startAutoUpdateChecks() {
 }
 
 async function checkForUpdatesManual() {
-  if (process.platform !== 'win32') {
-    return {
-      ok: false,
-      reason: 'not-applicable',
-      message: 'Updates are only supported on Windows.',
-    };
-  }
   if (!app.isPackaged) {
     return {
       ok: false,
