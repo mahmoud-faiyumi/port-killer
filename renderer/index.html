@@ -18,8 +18,8 @@
           <p class="tagline">TCP listeners · filter · end process by PID</p>
         </div>
         <div class="toolbar-actions" role="group" aria-label="Primary actions">
-          <button type="button" class="btn btn-primary" id="free-protected-btn" title="Stop processes listening on protected ports">
-            Free protected ports
+          <button type="button" class="btn btn-danger" id="free-protected-btn" title="Kill processes listening on favorite ports">
+            Kill favorite ports
           </button>
           <button type="button" class="btn btn-ghost" id="check-updates-btn" title="Query GitHub for a newer release">
             Check updates
@@ -65,15 +65,9 @@
         </div>
         <div class="filters-row filters-row--options">
           <div class="settings-group">
-            <label class="field-label" for="protected-ports-input">Protected ports</label>
-            <input
-              id="protected-ports-input"
-              class="extra-ports-input"
-              type="text"
-              placeholder="3000, 4200, 8080"
-              autocomplete="off"
-              spellcheck="false"
-            />
+            <button type="button" class="btn btn-ghost" id="protected-ports-btn" title="Edit favorite ports">
+              ★ Favorite ports
+            </button>
           </div>
           <label class="check-label" title="Use taskkill /T so child processes are stopped too">
             <input type="checkbox" id="kill-tree-input" />
@@ -122,6 +116,39 @@
           <li class="history-empty">No actions yet.</li>
         </ul>
       </section>
+    </div>
+    <div class="modal-backdrop" id="protected-ports-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="protected-ports-modal-title">
+        <h3 id="protected-ports-modal-title">Favorite ports</h3>
+        <p class="modal-copy">Add ports one by one. Click a card to remove it.</p>
+        <div class="favorite-ports-list" id="favorite-ports-list" aria-live="polite"></div>
+        <div class="favorite-ports-entry">
+          <input
+            id="protected-ports-modal-input"
+            class="delay-input favorite-port-input"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            placeholder="Add port"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" class="btn btn-primary" id="protected-ports-add-btn">Add</button>
+        </div>
+        <div class="modal-presets" aria-label="Common ports">
+          <button type="button" class="btn btn-ghost btn-chip" data-port-chip="3000">3000</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-port-chip="4200">4200</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-port-chip="5173">5173</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-port-chip="8080">8080</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-port-chip="9229">9229</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-port-chip="clear">Clear</button>
+        </div>
+        <p class="modal-feedback" id="protected-ports-modal-feedback" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="protected-ports-cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="protected-ports-save-btn">Save</button>
+        </div>
+      </div>
     </div>
     <script src="renderer.js" defer></script>
   </body>

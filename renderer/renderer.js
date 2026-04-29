@@ -9,7 +9,14 @@
   const showSystemPortsInput = document.querySelector('#show-system-ports');
   const devManualPortsOnlyInput = document.querySelector('#dev-manual-ports-only');
   const extraDevPortsInput = document.querySelector('#extra-dev-ports');
-  const protectedPortsInput = document.querySelector('#protected-ports-input');
+  const protectedPortsBtn = document.querySelector('#protected-ports-btn');
+  const protectedPortsModal = document.getElementById('protected-ports-modal');
+  const protectedPortsModalInput = document.getElementById('protected-ports-modal-input');
+  const protectedPortsAddBtn = document.getElementById('protected-ports-add-btn');
+  const favoritePortsList = document.getElementById('favorite-ports-list');
+  const protectedPortsModalFeedback = document.getElementById('protected-ports-modal-feedback');
+  const protectedPortsCancelBtn = document.getElementById('protected-ports-cancel-btn');
+  const protectedPortsSaveBtn = document.getElementById('protected-ports-save-btn');
   const killTreeInput = document.querySelector('#kill-tree-input');
   const killDelayInput = document.querySelector('#kill-delay-input');
   const minimizeToTrayInput = document.querySelector('#minimize-to-tray-input');
@@ -77,6 +84,7 @@
   let allRows = null;
   let currentSettings = null;
   let activeKillJob = null;
+  let favoritePortsDraft = [];
 
   function parseCommaSeparatedPorts(raw) {
     if (!raw || typeof raw !== 'string') {
@@ -93,6 +101,28 @@
       }
     }
     return out;
+  }
+
+  function analyzePortInput(raw) {
+    const parts = String(raw ?? '')
+      .split(/[\s,;]+/)
+      .filter(Boolean);
+    const valid = new Set();
+    const invalid = [];
+    for (const part of parts) {
+      const n = Number.parseInt(part, 10);
+      if (Number.isInteger(n) && n >= 1 && n <= 65535) {
+        valid.add(n);
+      } else {
+        invalid.push(part);
+      }
+    }
+    return { valid: Array.from(valid).sort((a, b) => a - b), invalid };
+  }
+
+  function parseSinglePort(raw) {
+    const n = Number.parseInt(String(raw ?? '').trim(), 10);
+    return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : null;
   }
 
   function buildManualDevAllowlistSet() {
@@ -404,9 +434,6 @@
 
   function applySettingsToUi(settings) {
     currentSettings = settings;
-    if (protectedPortsInput) {
-      protectedPortsInput.value = Array.isArray(settings.protectedPorts) ? settings.protectedPorts.join(', ') : '';
-    }
     if (killTreeInput) {
       killTreeInput.checked = settings.killProcessTree === true;
     }
@@ -418,18 +445,118 @@
     }
   }
 
-  async function saveSettingsFromUi() {
+  async function saveSettingsFromUi(patch = {}) {
     const api = window.portKiller;
     if (!api || typeof api.setSettings !== 'function') {
       return;
     }
     const next = await api.setSettings({
-      protectedPorts: parseCommaSeparatedPorts(protectedPortsInput?.value ?? ''),
       killProcessTree: killTreeInput?.checked === true,
       killDelaySeconds: Math.max(0, Math.min(30, Number.parseInt(killDelayInput?.value ?? '5', 10) || 5)),
       minimizeToTray: minimizeToTrayInput?.checked === true,
+      ...patch,
     });
     applySettingsToUi(next);
+  }
+
+  function openProtectedPortsModal() {
+    const existing = Array.isArray(currentSettings?.protectedPorts) ? currentSettings.protectedPorts : [];
+    favoritePortsDraft = [...existing].sort((a, b) => a - b);
+    renderFavoritePortsDraft();
+    if (protectedPortsModalInput) {
+      protectedPortsModalInput.value = '';
+    }
+    if (protectedPortsModal) {
+      protectedPortsModal.hidden = false;
+    }
+    updateProtectedPortsModalFeedback();
+    protectedPortsModalInput?.focus();
+    protectedPortsModalInput?.select();
+  }
+
+  function closeProtectedPortsModal() {
+    if (protectedPortsModal) {
+      protectedPortsModal.hidden = true;
+    }
+  }
+
+  async function saveProtectedPortsFromModal() {
+    const parsed = [...favoritePortsDraft].sort((a, b) => a - b);
+    await saveSettingsFromUi({ protectedPorts: parsed });
+    setStatus(`Favorite ports updated (${parsed.length} configured).`, 'success');
+    closeProtectedPortsModal();
+  }
+
+  function renderFavoritePortsDraft() {
+    if (!favoritePortsList) {
+      return;
+    }
+    if (favoritePortsDraft.length === 0) {
+      favoritePortsList.innerHTML = '<span class="favorite-port-empty">No favorite ports yet.</span>';
+      updateProtectedPortsModalFeedback();
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const port of favoritePortsDraft) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'favorite-port-card';
+      chip.dataset.favoritePort = String(port);
+      chip.textContent = `${String(port)} ×`;
+      chip.title = `Remove ${String(port)}`;
+      frag.appendChild(chip);
+    }
+    favoritePortsList.replaceChildren(frag);
+    updateProtectedPortsModalFeedback();
+  }
+
+  function addFavoritePortFromInput() {
+    const parsed = parseSinglePort(protectedPortsModalInput?.value ?? '');
+    if (parsed == null) {
+      updateProtectedPortsModalFeedback('Enter a valid port (1-65535).');
+      return;
+    }
+    if (!favoritePortsDraft.includes(parsed)) {
+      favoritePortsDraft.push(parsed);
+      favoritePortsDraft.sort((a, b) => a - b);
+    }
+    if (protectedPortsModalInput) {
+      protectedPortsModalInput.value = '';
+    }
+    renderFavoritePortsDraft();
+    protectedPortsModalInput?.focus();
+  }
+
+  function updateProtectedPortsModalFeedback(forcedErrorMessage) {
+    if (!protectedPortsModalFeedback) {
+      return;
+    }
+    const { invalid } = analyzePortInput(protectedPortsModalInput?.value ?? '');
+    protectedPortsModalFeedback.classList.remove('modal-feedback--error', 'modal-feedback--ok');
+    if (typeof forcedErrorMessage === 'string' && forcedErrorMessage.length > 0) {
+      protectedPortsModalFeedback.classList.add('modal-feedback--error');
+      protectedPortsModalFeedback.textContent = forcedErrorMessage;
+      if (protectedPortsSaveBtn) {
+        protectedPortsSaveBtn.disabled = true;
+      }
+      return;
+    }
+    if (invalid.length > 0) {
+      protectedPortsModalFeedback.classList.add('modal-feedback--error');
+      protectedPortsModalFeedback.textContent = `Invalid: ${invalid.join(', ')}. Use ports 1-65535.`;
+      if (protectedPortsSaveBtn) {
+        protectedPortsSaveBtn.disabled = true;
+      }
+      return;
+    }
+    protectedPortsModalFeedback.classList.add('modal-feedback--ok');
+    protectedPortsModalFeedback.textContent =
+      favoritePortsDraft.length > 0
+        ? `${favoritePortsDraft.length} favorite port(s) configured.`
+        : 'No favorite ports configured.';
+    if (protectedPortsSaveBtn) {
+      protectedPortsSaveBtn.disabled = false;
+    }
   }
 
   function formatHistoryEntry(entry) {
@@ -618,7 +745,7 @@
       return;
     }
     const ports = Array.isArray(currentSettings?.protectedPorts) ? currentSettings.protectedPorts : [];
-    if (!window.confirm(`Free protected ports now (${ports.join(', ') || 'none configured'})?`)) {
+    if (!window.confirm(`Free favorite ports now (${ports.join(', ') || 'none configured'})?`)) {
       return;
     }
     const result = await api.freeProtectedPorts();
@@ -627,13 +754,13 @@
     if (result && result.ok) {
       setStatus(
         result.killed === 0
-          ? 'No listeners were using protected ports.'
-          : `Stopped ${String(result.killed)} process(es) on protected ports.`,
+          ? 'No listeners were using favorite ports.'
+          : `Stopped ${String(result.killed)} process(es) on favorite ports.`,
         'success',
       );
       return;
     }
-    setStatus(`Could not free protected ports: ${String(result?.error || 'Failed')}`, 'error');
+    setStatus(`Could not free favorite ports: ${String(result?.error || 'Failed')}`, 'error');
   }
 
   if (rowsBody) {
@@ -667,8 +794,75 @@
       renderFromCache();
     });
   }
-  if (protectedPortsInput) {
-    protectedPortsInput.addEventListener('change', () => void saveSettingsFromUi());
+  if (protectedPortsBtn) {
+    protectedPortsBtn.addEventListener('click', openProtectedPortsModal);
+  }
+  if (protectedPortsCancelBtn) {
+    protectedPortsCancelBtn.addEventListener('click', closeProtectedPortsModal);
+  }
+  if (protectedPortsSaveBtn) {
+    protectedPortsSaveBtn.addEventListener('click', () => void saveProtectedPortsFromModal());
+  }
+  if (protectedPortsModalInput) {
+    protectedPortsModalInput.addEventListener('input', () => updateProtectedPortsModalFeedback());
+    protectedPortsModalInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addFavoritePortFromInput();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeProtectedPortsModal();
+      }
+    });
+  }
+  if (protectedPortsAddBtn) {
+    protectedPortsAddBtn.addEventListener('click', addFavoritePortFromInput);
+  }
+  if (favoritePortsList) {
+    favoritePortsList.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-favorite-port]');
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const p = Number.parseInt(target.dataset.favoritePort ?? '', 10);
+      if (!Number.isInteger(p)) {
+        return;
+      }
+      favoritePortsDraft = favoritePortsDraft.filter((port) => port !== p);
+      renderFavoritePortsDraft();
+    });
+  }
+  if (protectedPortsModal) {
+    protectedPortsModal.addEventListener('click', (event) => {
+      if (event.target === protectedPortsModal) {
+        closeProtectedPortsModal();
+      }
+    });
+    protectedPortsModal.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-port-chip]');
+      if (!(chip instanceof HTMLElement) || !protectedPortsModalInput) {
+        return;
+      }
+      const value = chip.dataset.portChip;
+      if (!value) {
+        return;
+      }
+      if (value === 'clear') {
+        favoritePortsDraft = [];
+        renderFavoritePortsDraft();
+        return;
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isInteger(parsed)) {
+        return;
+      }
+      if (!favoritePortsDraft.includes(parsed)) {
+        favoritePortsDraft.push(parsed);
+        favoritePortsDraft.sort((a, b) => a - b);
+      }
+      renderFavoritePortsDraft();
+    });
   }
   if (killTreeInput) {
     killTreeInput.addEventListener('change', () => void saveSettingsFromUi());

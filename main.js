@@ -212,14 +212,14 @@ function updateTrayMenu() {
         },
       },
       {
-        label: 'Free protected ports',
+        label: 'Free favorite ports',
         click: async () => {
           const result = await runFreeProtectedPorts('tray');
           const body = result.ok
             ? result.killed === 0
-              ? 'No listeners were using protected ports.'
-              : `Stopped ${String(result.killed)} process(es) on protected ports.`
-            : String(result.error || 'Failed to free protected ports.');
+              ? 'No listeners were using favorite ports.'
+              : `Stopped ${String(result.killed)} process(es) on favorite ports.`
+            : String(result.error || 'Failed to free favorite ports.');
           new Notification({
             title: 'Port Killer',
             body,
