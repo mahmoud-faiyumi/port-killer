@@ -11,6 +11,7 @@ const {
   nativeImage,
 } = require('electron');
 const path = require('node:path');
+const { description: appDescription } = require('./package.json');
 
 const { getPorts } = require('./src/portScanner');
 const { killProcessByPid } = require('./src/processKiller');
@@ -339,7 +340,72 @@ async function runFreeProtectedPorts(source) {
   }
 }
 
+async function showAboutDialog() {
+  const win = getMainWindowOrNull() ?? undefined;
+  await dialog.showMessageBox(win, {
+    type: 'info',
+    title: 'About Port Killer',
+    message: 'Port Killer',
+    detail: `Version: ${app.getVersion()}\n${appDescription}`,
+    buttons: ['OK'],
+    defaultId: 0,
+    noLink: true,
+  });
+}
+
+async function showAboutDeveloperDialog() {
+  const win = getMainWindowOrNull() ?? undefined;
+  await dialog.showMessageBox(win, {
+    type: 'info',
+    title: 'About Developer',
+    message: 'Developer',
+    detail: 'Mahmoud Faiyumi\nGitHub: github.com/mahmoud-faiyumi',
+    buttons: ['OK'],
+    defaultId: 0,
+    noLink: true,
+  });
+}
+
+function createApplicationMenuTemplate() {
+  return [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'About Port Killer',
+          click: () => {
+            showAboutDialog().catch(() => {});
+          },
+        },
+        {
+          label: 'About Developer',
+          click: () => {
+            showAboutDeveloperDialog().catch(() => {});
+          },
+        },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+  ];
+}
+
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(createApplicationMenuTemplate()));
   settingsStore = createSettingsStore(app);
   startAutoUpdateChecks();
   mainWindow = createWindow();
