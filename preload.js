@@ -52,4 +52,10 @@ contextBridge.exposeInMainWorld('portKiller', {
     ipcRenderer.on('updater-event', listener);
     return () => ipcRenderer.removeListener('updater-event', listener);
   },
+  writeClipboard(text) {
+    return ipcRenderer.invoke('clipboard-write-text', text);
+  },
+  getReleaseNotes(version) {
+    return ipcRenderer.invoke('get-release-notes', version);
+  },
 });

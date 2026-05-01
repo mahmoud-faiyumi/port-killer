@@ -9,6 +9,7 @@ const {
   Menu,
   Notification,
   nativeImage,
+  clipboard,
 } = require('electron');
 const path = require('node:path');
 const { description: appDescription } = require('./package.json');
@@ -24,6 +25,7 @@ const {
   getLastUpdateState,
   installDownloadedUpdate,
 } = require('./src/updater');
+const { fetchReleaseNotesForVersion } = require('./src/releaseNotes');
 
 let mainWindow = null;
 let tray = null;
@@ -465,6 +467,18 @@ ipcMain.handle('install-downloaded-update', () => {
     };
   }
 });
+ipcMain.handle('clipboard-write-text', (_event, text) => {
+  try {
+    clipboard.writeText(String(text ?? ''));
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
+ipcMain.handle('get-release-notes', async (_event, version) => fetchReleaseNotesForVersion(version));
 ipcMain.handle('get-settings', () => settingsStore.read());
 ipcMain.handle('set-settings', (_event, patch) => {
   const next = settingsStore.write(sanitizeSettings(patch));

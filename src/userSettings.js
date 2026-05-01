@@ -8,6 +8,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   killProcessTree: true,
   minimizeToTray: true,
   killDelaySeconds: 5,
+  tableSortColumn: 'port',
+  tableSortDirection: 'asc',
+  pinnedPorts: [],
+  theme: 'dark',
+  dismissedReleaseNotesVersion: '',
 });
 
 function sanitizePortList(values) {
@@ -24,8 +29,35 @@ function sanitizePortList(values) {
   return Array.from(set).sort((a, b) => a - b);
 }
 
+const SORT_COLUMNS = new Set(['port', 'pid', 'process', 'state']);
+const SORT_DIRECTIONS = new Set(['asc', 'desc']);
+const THEMES = new Set(['dark', 'light', 'system']);
+
+function sanitizePinnedPorts(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const set = new Set();
+  for (const value of values) {
+    const n = Number.parseInt(String(value), 10);
+    if (Number.isInteger(n) && n >= 1 && n <= 65535) {
+      set.add(n);
+    }
+  }
+  return Array.from(set).sort((a, b) => a - b);
+}
+
 function sanitizeSettings(input) {
   const settings = input && typeof input === 'object' ? input : {};
+  const sortCol = SORT_COLUMNS.has(settings.tableSortColumn) ? settings.tableSortColumn : DEFAULT_SETTINGS.tableSortColumn;
+  const sortDir = SORT_DIRECTIONS.has(settings.tableSortDirection)
+    ? settings.tableSortDirection
+    : DEFAULT_SETTINGS.tableSortDirection;
+  const theme = THEMES.has(settings.theme) ? settings.theme : DEFAULT_SETTINGS.theme;
+  const dismissed =
+    typeof settings.dismissedReleaseNotesVersion === 'string'
+      ? settings.dismissedReleaseNotesVersion
+      : DEFAULT_SETTINGS.dismissedReleaseNotesVersion;
   const next = {
     protectedPorts: sanitizePortList(settings.protectedPorts),
     killProcessTree: settings.killProcessTree !== false,
@@ -33,6 +65,11 @@ function sanitizeSettings(input) {
     killDelaySeconds: Number.isInteger(settings.killDelaySeconds)
       ? Math.max(0, Math.min(30, settings.killDelaySeconds))
       : DEFAULT_SETTINGS.killDelaySeconds,
+    tableSortColumn: sortCol,
+    tableSortDirection: sortDir,
+    pinnedPorts: sanitizePinnedPorts(settings.pinnedPorts),
+    theme,
+    dismissedReleaseNotesVersion: dismissed,
   };
   return next;
 }

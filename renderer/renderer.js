@@ -24,16 +24,225 @@
   const historyList = document.getElementById('history-list');
   const killQueue = document.getElementById('kill-queue');
   const countBadge = document.getElementById('count-badge');
-  const statusBar = document.getElementById('status-bar');
-  const updatePanel = document.getElementById('update-panel');
-  const updateText = document.getElementById('update-text');
-  const updateProgress = document.getElementById('update-progress');
+  const snackPanel = document.getElementById('snack-panel');
+  const snackText = document.getElementById('snack-text');
+  const snackProgress = document.getElementById('snack-progress');
   const installUpdateBtn = document.getElementById('install-update-btn');
   const loading = document.getElementById('loading');
   const emptyHint = document.getElementById('empty-hint');
+  const portsTable = document.getElementById('ports-table');
+  const releaseNotesModal = document.getElementById('release-notes-modal');
+  const releaseNotesTitle = document.getElementById('release-notes-title');
+  const releaseNotesVersionLine = document.getElementById('release-notes-version-line');
+  const releaseNotesBody = document.getElementById('release-notes-body');
+  const releaseNotesOkBtn = document.getElementById('release-notes-ok-btn');
 
   const WELL_KNOWN_PORT_MAX = 1023;
   const EXTRA_DEV_PORTS_STORAGE_KEY = 'portKiller.devPortsExtra';
+  const SNACK_AUTO_HIDE_MS = 5000;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  /** @type {number | null} */
+  let snackHideTimerId = null;
+
+  /** Keeps renderUpdateState / snack persistence in sync before wider state block runs. */
+  let latestUpdateState = null;
+
+  function clearSnackHideTimer() {
+    if (snackHideTimerId != null) {
+      window.clearTimeout(snackHideTimerId);
+      snackHideTimerId = null;
+    }
+  }
+
+  /** Progress visible, install CTA, or updater still running without auto-dismiss. */
+  function snackIsPersistent() {
+    if (!snackProgress || !installUpdateBtn) {
+      return false;
+    }
+    if (!snackProgress.hidden) {
+      return true;
+    }
+    if (!installUpdateBtn.hidden) {
+      return true;
+    }
+    const st = latestUpdateState != null ? String(latestUpdateState.status || '') : '';
+    return st === 'checking' || st === 'available' || st === 'retrying' || st === 'downloading';
+  }
+
+  function scheduleSnackAutoHide() {
+    clearSnackHideTimer();
+    if (!snackPanel || snackPanel.hidden || snackIsPersistent()) {
+      return;
+    }
+    snackHideTimerId = window.setTimeout(() => {
+      snackHideTimerId = null;
+      if (!snackIsPersistent() && snackPanel) {
+        snackPanel.hidden = true;
+        clearSnackPanelTone();
+      }
+    }, SNACK_AUTO_HIDE_MS);
+  }
+
+  function clearSnackPanelTone() {
+    if (!snackPanel) {
+      return;
+    }
+    snackPanel.classList.remove('snack-panel--error', 'snack-panel--success');
+  }
+
+  function applySnackTone(kind) {
+    if (!snackPanel) {
+      return;
+    }
+    clearSnackPanelTone();
+    if (kind === 'error') {
+      snackPanel.classList.add('snack-panel--error');
+    } else if (kind === 'success') {
+      snackPanel.classList.add('snack-panel--success');
+    }
+  }
+
+  function svgIcon(attrs, children) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.classList.add('icon-svg');
+    const extra = attrs.className;
+    if (typeof extra === 'string' && extra.trim()) {
+      for (const c of extra.trim().split(/\s+/)) {
+        svg.classList.add(c);
+      }
+    }
+    svg.setAttribute('width', attrs.width ?? '16');
+    svg.setAttribute('height', attrs.height ?? '16');
+    svg.setAttribute('viewBox', attrs.viewBox ?? '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const child of children) {
+      const el = document.createElementNS(SVG_NS, child.tag);
+      for (const [k, v] of Object.entries(child)) {
+        if (k === 'tag') {
+          continue;
+        }
+        el.setAttribute(k, v);
+      }
+      svg.appendChild(el);
+    }
+    return svg;
+  }
+
+  /** Lucide-style pushpin; active state via `.btn-pin-toggle--active` (color + stroke). */
+  function iconPin() {
+    const stroke = {
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '1.75',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    };
+    return svgIcon(
+      { width: '18', height: '18', className: 'icon-svg icon-svg--pin' },
+      [
+        {
+          tag: 'path',
+          ...stroke,
+          d: 'M12 17v5',
+        },
+        {
+          tag: 'path',
+          ...stroke,
+          d: 'M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 1 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 1-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1v0a1 1 0 0 0-1 1v3.76',
+        },
+        {
+          tag: 'circle',
+          ...stroke,
+          cx: '12',
+          cy: '7',
+          r: '4',
+        },
+      ],
+    );
+  }
+
+  function iconStar(filled) {
+    if (filled) {
+      return svgIcon(
+        { width: '16', height: '16' },
+        [
+          {
+            tag: 'path',
+            fill: 'currentColor',
+            'fill-rule': 'evenodd',
+            d: 'M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z',
+            'clip-rule': 'evenodd',
+          },
+        ],
+      );
+    }
+    return svgIcon(
+      { width: '16', height: '16' },
+      [
+        {
+          tag: 'path',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '1.5',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z',
+        },
+      ],
+    );
+  }
+
+  function iconClipboard() {
+    return svgIcon(
+      { width: '14', height: '14' },
+      [
+        {
+          tag: 'path',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '1.5',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+        },
+      ],
+    );
+  }
+
+  function iconHashSmall() {
+    return svgIcon(
+      { width: '13', height: '13' },
+      [
+        {
+          tag: 'path',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '2',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M4 9h16M4 15h16M10 3L8 21M16 3l-2 18',
+        },
+      ],
+    );
+  }
+
+  function iconCpuSmall() {
+    return svgIcon(
+      { width: '13', height: '13' },
+      [
+        {
+          tag: 'path',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '1.5',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15-3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0013.5 4.5h-3A2.25 2.25 0 006.75 6.75v10.5A2.25 2.25 0 009 19.5z',
+        },
+      ],
+    );
+  }
 
   function portRange(lo, hi) {
     const out = [];
@@ -89,7 +298,7 @@
   let currentSettings = null;
   let activeKillJob = null;
   let favoritePortsDraft = [];
-  let latestUpdateState = null;
+  let releaseNotesPendingVersion = null;
 
   function parseCommaSeparatedPorts(raw) {
     if (!raw || typeof raw !== 'string') {
@@ -192,12 +401,24 @@
   }
 
   function setStatus(message, kind) {
-    if (!statusBar) {
+    if (!snackPanel || !snackText) {
       return;
     }
-    statusBar.textContent = message;
-    statusBar.classList.toggle('status-bar--error', kind === 'error');
-    statusBar.classList.toggle('status-bar--success', kind === 'success');
+    snackText.textContent = message;
+    applySnackTone(kind);
+    const st = String(latestUpdateState?.status || '');
+    const updaterBusy =
+      st === 'checking' || st === 'available' || st === 'retrying' || st === 'downloading' || st === 'downloaded';
+    if (!updaterBusy) {
+      if (snackProgress) {
+        snackProgress.hidden = true;
+      }
+      if (installUpdateBtn) {
+        installUpdateBtn.hidden = true;
+      }
+    }
+    snackPanel.hidden = false;
+    scheduleSnackAutoHide();
   }
 
   function setLoading(isLoading) {
@@ -221,51 +442,76 @@
 
   function renderUpdateState(state) {
     latestUpdateState = state;
-    if (!updatePanel || !updateText || !updateProgress || !installUpdateBtn || !state || typeof state !== 'object') {
+    if (!snackPanel || !snackText || !snackProgress || !installUpdateBtn || !state || typeof state !== 'object') {
       return;
     }
     const status = String(state.status || '');
     if (status === '' || status === 'idle') {
-      updatePanel.hidden = true;
+      clearSnackHideTimer();
+      snackPanel.hidden = true;
+      clearSnackPanelTone();
       return;
     }
-    updatePanel.hidden = false;
-    updateProgress.hidden = true;
+
+    snackPanel.hidden = false;
+    snackProgress.hidden = true;
     installUpdateBtn.hidden = true;
+    clearSnackPanelTone();
 
     if (status === 'checking') {
-      updateText.textContent = 'Checking for updates...';
+      snackText.textContent = 'Checking for updates...';
+      scheduleSnackAutoHide();
       return;
     }
     if (status === 'available') {
-      updateText.textContent = state.version
+      snackText.textContent = state.version
         ? `Update v${String(state.version)} available. Download started...`
         : 'Update available. Download started...';
+      scheduleSnackAutoHide();
       return;
     }
     if (status === 'downloading') {
       const percent = Number(state.percent || 0);
-      updateText.textContent = `Downloading update... ${formatUpdatePercent(percent)}`;
-      updateProgress.hidden = false;
-      updateProgress.value = Math.max(0, Math.min(100, percent));
+      snackText.textContent = `Downloading update... ${formatUpdatePercent(percent)}`;
+      snackProgress.hidden = false;
+      snackProgress.value = Math.max(0, Math.min(100, percent));
+      scheduleSnackAutoHide();
+      return;
+    }
+    if (status === 'retrying') {
+      snackText.textContent =
+        state.message != null && String(state.message).length > 0
+          ? String(state.message)
+          : 'Waiting to retry update download…';
+      snackProgress.hidden = true;
+      installUpdateBtn.hidden = true;
+      scheduleSnackAutoHide();
       return;
     }
     if (status === 'downloaded') {
-      updateText.textContent = state.version
+      snackText.textContent = state.version
         ? `Update v${String(state.version)} is ready to install.`
         : 'Update is ready to install.';
       installUpdateBtn.hidden = false;
+      if (state.version != null) {
+        void maybeShowReleaseNotesForVersion(state.version);
+      }
+      scheduleSnackAutoHide();
       return;
     }
     if (status === 'up-to-date') {
-      updateText.textContent = "You're on the latest version.";
+      snackText.textContent = "You're on the latest version.";
+      scheduleSnackAutoHide();
       return;
     }
     if (status === 'error') {
-      updateText.textContent = state.message ? `Update error: ${String(state.message)}` : 'Update failed.';
+      applySnackTone('error');
+      snackText.textContent = state.message ? `Update error: ${String(state.message)}` : 'Update failed.';
+      scheduleSnackAutoHide();
       return;
     }
-    updateText.textContent = 'Updater status changed.';
+    snackText.textContent = 'Updater status changed.';
+    scheduleSnackAutoHide();
   }
 
   function showKillQueue(message) {
@@ -299,6 +545,164 @@
       }
     }
     return false;
+  }
+
+  function compareRowsBySort(a, b) {
+    const col = currentSettings?.tableSortColumn ?? 'port';
+    const dir = currentSettings?.tableSortDirection === 'desc' ? -1 : 1;
+    if (col === 'port') {
+      return dir * (a.port - b.port);
+    }
+    if (col === 'pid') {
+      return dir * (a.pid - b.pid);
+    }
+    if (col === 'process') {
+      return dir * String(a.processName).localeCompare(String(b.processName), undefined, { sensitivity: 'base' });
+    }
+    if (col === 'state') {
+      return dir * String(a.state || '').localeCompare(String(b.state || ''), undefined, { sensitivity: 'base' });
+    }
+    return 0;
+  }
+
+  function sortRowsList(rows) {
+    const copy = [...rows];
+    copy.sort(compareRowsBySort);
+    return copy;
+  }
+
+  function orderRowsForDisplay(rows) {
+    const query = filterInput?.value?.trim() ?? '';
+    const pinned = new Set(Array.isArray(currentSettings?.pinnedPorts) ? currentSettings.pinnedPorts : []);
+    if (query.length === 0 || pinned.size === 0) {
+      return sortRowsList(rows);
+    }
+    const pinnedRows = [];
+    const otherRows = [];
+    for (const r of rows) {
+      if (pinned.has(r.port)) {
+        pinnedRows.push(r);
+      } else {
+        otherRows.push(r);
+      }
+    }
+    return [...sortRowsList(pinnedRows), ...sortRowsList(otherRows)];
+  }
+
+  function formatRowLine(r) {
+    return [r.port, r.localAddress, r.pid, r.processName, r.state != null ? r.state : '—'].join('\t');
+  }
+
+  async function copyToClipboard(text) {
+    const api = window.portKiller;
+    if (api && typeof api.writeClipboard === 'function') {
+      const res = await api.writeClipboard(text);
+      if (res && res.ok === true) {
+        setStatus('Copied to clipboard.', 'success');
+        return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Copied to clipboard.', 'success');
+    } catch {
+      setStatus('Could not copy to clipboard.', 'error');
+    }
+  }
+
+  function updateSortHeaderButtons() {
+    if (!portsTable) {
+      return;
+    }
+    const col = currentSettings?.tableSortColumn ?? 'port';
+    const dir = currentSettings?.tableSortDirection ?? 'asc';
+    for (const btn of portsTable.querySelectorAll('.th-sort')) {
+      if (!(btn instanceof HTMLButtonElement)) {
+        continue;
+      }
+      const key = btn.dataset.sortKey;
+      const active = key === col;
+      btn.classList.toggle('th-sort--active', active);
+      btn.classList.toggle('th-sort--desc', active && dir === 'desc');
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  }
+
+  function applyThemeFromSettings() {
+    const t = currentSettings?.theme ?? 'dark';
+    document.body.setAttribute('data-theme', t);
+  }
+
+  function closeReleaseNotesModal() {
+    if (releaseNotesModal) {
+      releaseNotesModal.hidden = true;
+    }
+    releaseNotesPendingVersion = null;
+  }
+
+  async function maybeShowReleaseNotesForVersion(version) {
+    const v = version != null ? String(version).trim() : '';
+    if (!v) {
+      return;
+    }
+    const dismissed = String(currentSettings?.dismissedReleaseNotesVersion ?? '');
+    if (dismissed === v) {
+      return;
+    }
+    if (releaseNotesPendingVersion === v) {
+      return;
+    }
+    releaseNotesPendingVersion = v;
+    const api = window.portKiller;
+    let bodyText = '';
+    if (api && typeof api.getReleaseNotes === 'function') {
+      const res = await api.getReleaseNotes(v);
+      if (res && res.ok === true && typeof res.body === 'string') {
+        bodyText = res.body.trim();
+      }
+    }
+    if (!releaseNotesModal || !releaseNotesBody || !releaseNotesVersionLine) {
+      return;
+    }
+    releaseNotesVersionLine.textContent = `Version ${v}`;
+    releaseNotesBody.textContent = bodyText.length > 0 ? bodyText : 'No release notes were published for this version.';
+    releaseNotesModal.hidden = false;
+    releaseNotesOkBtn?.focus();
+  }
+
+  async function togglePinnedPort(port) {
+    const existing = Array.isArray(currentSettings?.pinnedPorts) ? currentSettings.pinnedPorts : [];
+    const nextSet = new Set(existing);
+    const wasPinned = nextSet.has(port);
+    if (wasPinned) {
+      nextSet.delete(port);
+    } else {
+      nextSet.add(port);
+    }
+    const next = Array.from(nextSet).sort((a, b) => a - b);
+    await saveSettingsFromUi({ pinnedPorts: next });
+    setStatus(
+      wasPinned ? `Unpinned port ${String(port)}.` : `Pinned port ${String(port)} (shown first while filtering).`,
+      'success',
+    );
+  }
+
+  async function onSortHeaderClick(btn) {
+    const key = btn.dataset.sortKey;
+    if (!key || !['port', 'pid', 'process', 'state'].includes(key)) {
+      return;
+    }
+    const cur = currentSettings?.tableSortColumn ?? 'port';
+    const dir = currentSettings?.tableSortDirection ?? 'asc';
+    let nextDir = 'asc';
+    if (cur === key) {
+      nextDir = dir === 'asc' ? 'desc' : 'asc';
+    }
+    await saveSettingsFromUi({
+      tableSortColumn: key,
+      tableSortDirection: nextDir,
+    });
+    renderFromCache();
   }
 
   function tcpStateKey(state) {
@@ -380,13 +784,18 @@
     const filteredByPort = applyManualDevFilter(applySystemPortFilter(source));
     const query = filterInput?.value?.trim() ?? '';
     const filtered = query ? filteredByPort.filter((r) => rowMatchesFilter(r, query)) : filteredByPort;
+    const ordered = orderRowsForDisplay(filtered);
+    const pinnedSet = new Set(Array.isArray(currentSettings?.pinnedPorts) ? currentSettings.pinnedPorts : []);
     const frag = document.createDocumentFragment();
     let visualRow = 0;
-    for (const r of filtered) {
+    for (const r of ordered) {
       const variants = Array.isArray(r.stateVariants) ? r.stateVariants : null;
       const expandable = variants != null && variants.length > 1;
       const tr = document.createElement('tr');
       tr.className = 'row-main';
+      if (pinnedSet.has(r.port)) {
+        tr.classList.add('row-main--pinned');
+      }
       if (visualRow % 2 === 1) {
         tr.classList.add('row-alt');
       }
@@ -423,6 +832,20 @@
         stateTd.appendChild(document.createTextNode(String(r.state || '—')));
       }
       tr.appendChild(stateTd);
+      const pinTd = document.createElement('td');
+      pinTd.className = 'col-pin';
+      const pinBtn = document.createElement('button');
+      pinBtn.type = 'button';
+      pinBtn.className = 'btn btn-table btn-pin-toggle';
+      pinBtn.dataset.pinPort = String(r.port);
+      const isPinned = pinnedSet.has(r.port);
+      pinBtn.replaceChildren(iconPin());
+      pinBtn.classList.toggle('btn-pin-toggle--active', isPinned);
+      pinBtn.setAttribute('aria-pressed', isPinned ? 'true' : 'false');
+      pinBtn.setAttribute('aria-label', isPinned ? `Unpin port ${String(r.port)}` : `Pin port ${String(r.port)} to top while filtering`);
+      pinBtn.title = isPinned ? 'Unpin row' : 'Pin row (shown first while filtering)';
+      pinTd.appendChild(pinBtn);
+      tr.appendChild(pinTd);
       const favoriteTd = document.createElement('td');
       favoriteTd.className = 'col-favorite';
       const favoriteBtn = document.createElement('button');
@@ -432,7 +855,7 @@
       const favorite = isFavoritePort(r.port);
       const glyph = document.createElement('span');
       glyph.className = 'favorite-glyph';
-      glyph.textContent = favorite ? '★' : '☆';
+      glyph.appendChild(iconStar(favorite));
       favoriteBtn.appendChild(glyph);
       favoriteBtn.classList.toggle('btn-favorite-toggle--active', favorite);
       favoriteBtn.setAttribute(
@@ -442,6 +865,27 @@
       favoriteBtn.title = favorite ? 'Remove from favorites' : 'Add to favorites';
       favoriteTd.appendChild(favoriteBtn);
       tr.appendChild(favoriteTd);
+      const copyTd = document.createElement('td');
+      copyTd.className = 'col-copy';
+      const copyWrap = document.createElement('div');
+      copyWrap.className = 'copy-actions';
+      const mkCopyBtn = (title, text, iconFactory) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-table btn-copy-micro';
+        b.title = title;
+        b.dataset.copyText = text;
+        const wrap = document.createElement('span');
+        wrap.className = 'btn-copy-micro__inner';
+        wrap.appendChild(iconFactory());
+        b.appendChild(wrap);
+        return b;
+      };
+      copyWrap.appendChild(mkCopyBtn('Copy port', String(r.port), iconHashSmall));
+      copyWrap.appendChild(mkCopyBtn('Copy PID', String(r.pid), iconCpuSmall));
+      copyWrap.appendChild(mkCopyBtn('Copy full row', formatRowLine(r), iconClipboard));
+      copyTd.appendChild(copyWrap);
+      tr.appendChild(copyTd);
       const actionTd = document.createElement('td');
       actionTd.className = 'col-action';
       const btn = document.createElement('button');
@@ -459,7 +903,7 @@
         detailTr.className = 'row-detail';
         detailTr.hidden = true;
         const detailTd = document.createElement('td');
-        detailTd.colSpan = 7;
+        detailTd.colSpan = 9;
         detailTd.appendChild(buildStateDetailTable(variants));
         detailTr.appendChild(detailTd);
         frag.appendChild(detailTr);
@@ -468,6 +912,7 @@
     rowsBody.replaceChildren(frag);
     countBadge.textContent = countLabel(filtered.length);
     emptyHint.hidden = filtered.length > 0;
+    updateSortHeaderButtons();
   }
 
   function renderFromCache(rows) {
@@ -523,6 +968,8 @@
     if (minimizeToTrayInput) {
       minimizeToTrayInput.checked = settings.minimizeToTray === true;
     }
+    applyThemeFromSettings();
+    updateSortHeaderButtons();
   }
 
   async function saveSettingsFromUi(patch = {}) {
@@ -765,6 +1212,33 @@
   }
 
   async function onRowsBodyClick(ev) {
+    const copyBtn = ev.target.closest('button.btn-copy-micro');
+    if (copyBtn instanceof HTMLButtonElement && copyBtn.dataset.copyText != null) {
+      ev.stopPropagation();
+      await copyToClipboard(String(copyBtn.dataset.copyText));
+      return;
+    }
+
+    const pinBtnEl = ev.target.closest('button.btn-pin-toggle');
+    if (pinBtnEl instanceof HTMLButtonElement && pinBtnEl.dataset.pinPort != null) {
+      ev.stopPropagation();
+      const port = Number.parseInt(pinBtnEl.dataset.pinPort, 10);
+      if (!Number.isInteger(port)) {
+        return;
+      }
+      pinBtnEl.disabled = true;
+      try {
+        await togglePinnedPort(port);
+        renderFromCache();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatus(`Could not update pinned port ${String(port)}: ${message}`, 'error');
+      } finally {
+        pinBtnEl.disabled = false;
+      }
+      return;
+    }
+
     const favoriteBtn = ev.target.closest('button.btn-favorite-toggle');
     if (favoriteBtn instanceof HTMLButtonElement && favoriteBtn.dataset.favoritePort != null) {
       const port = Number.parseInt(favoriteBtn.dataset.favoritePort, 10);
@@ -1035,6 +1509,31 @@
   }
   if (historyRefreshBtn) {
     historyRefreshBtn.addEventListener('click', () => void refreshHistory());
+  }
+  if (portsTable) {
+    portsTable.addEventListener('click', (ev) => {
+      const sortBtn = ev.target.closest('.th-sort');
+      if (sortBtn instanceof HTMLButtonElement) {
+        ev.preventDefault();
+        void onSortHeaderClick(sortBtn);
+      }
+    });
+  }
+  if (releaseNotesOkBtn) {
+    releaseNotesOkBtn.addEventListener('click', async () => {
+      const v = releaseNotesPendingVersion != null ? String(releaseNotesPendingVersion) : '';
+      if (v) {
+        await saveSettingsFromUi({ dismissedReleaseNotesVersion: v });
+      }
+      closeReleaseNotesModal();
+    });
+  }
+  if (releaseNotesModal) {
+    releaseNotesModal.addEventListener('click', (ev) => {
+      if (ev.target === releaseNotesModal) {
+        releaseNotesOkBtn?.click();
+      }
+    });
   }
 
   loadExtraDevPortsFromStorage();

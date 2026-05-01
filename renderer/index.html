@@ -10,7 +10,7 @@
     <title>Port Killer</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body data-theme="dark">
     <div class="app">
       <header class="toolbar">
         <div class="toolbar-brand">
@@ -66,7 +66,15 @@
         <div class="filters-row filters-row--options">
           <div class="settings-group">
             <button type="button" class="btn btn-ghost btn-favorite-ports" id="protected-ports-btn" title="Edit favorite ports">
-              ★ Favorite ports
+              <svg class="icon-svg icon-svg--toolbar" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  fill-rule="evenodd"
+                  d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Favorite ports
             </button>
           </div>
           <label class="check-label" title="Use taskkill /T so child processes are stopped too">
@@ -84,11 +92,10 @@
         </div>
       </section>
 
-      <div class="status-bar" id="status-bar" role="status" aria-live="polite"></div>
-      <section class="update-panel" id="update-panel" hidden aria-live="polite">
-        <p class="update-panel__text" id="update-text"></p>
-        <progress class="update-panel__progress" id="update-progress" max="100" value="0" hidden></progress>
-        <button type="button" class="btn btn-primary update-panel__install-btn" id="install-update-btn" hidden>
+      <section class="snack-panel" id="snack-panel" hidden role="status" aria-live="polite">
+        <p class="snack-panel__text" id="snack-text"></p>
+        <progress class="snack-panel__progress" id="snack-progress" max="100" value="0" hidden></progress>
+        <button type="button" class="btn btn-primary snack-panel__install-btn" id="install-update-btn" hidden>
           Install update
         </button>
       </section>
@@ -99,15 +106,25 @@
           <div class="spinner" aria-hidden="true"></div>
           <p>Scanning…</p>
         </div>
-        <table class="data-table">
+        <table class="data-table" id="ports-table">
           <thead>
             <tr>
-              <th scope="col">Port</th>
+              <th scope="col" class="th-sort-wrap">
+                <button type="button" class="th-sort" data-sort-key="port">Port</button>
+              </th>
               <th scope="col">Address</th>
-              <th scope="col">PID</th>
-              <th scope="col">Process</th>
-              <th scope="col">State</th>
+              <th scope="col" class="th-sort-wrap">
+                <button type="button" class="th-sort" data-sort-key="pid">PID</button>
+              </th>
+              <th scope="col" class="th-sort-wrap">
+                <button type="button" class="th-sort" data-sort-key="process">Process</button>
+              </th>
+              <th scope="col" class="th-sort-wrap">
+                <button type="button" class="th-sort" data-sort-key="state">State</button>
+              </th>
+              <th scope="col" class="col-pin th-pin">Pin</th>
               <th scope="col" class="col-favorite th-favorite">Favorite</th>
+              <th scope="col" class="col-copy th-copy">Copy</th>
               <th scope="col" class="col-action th-action">Action</th>
             </tr>
           </thead>
@@ -124,6 +141,16 @@
           <li class="history-empty">No actions yet.</li>
         </ul>
       </section>
+    </div>
+    <div class="modal-backdrop" id="release-notes-modal" hidden>
+      <div class="modal-card modal-card--wide" role="dialog" aria-modal="true" aria-labelledby="release-notes-title">
+        <h3 id="release-notes-title">Release notes</h3>
+        <p class="modal-copy" id="release-notes-version-line"></p>
+        <pre class="release-notes-body" id="release-notes-body"></pre>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="release-notes-ok-btn">OK</button>
+        </div>
+      </div>
     </div>
     <div class="modal-backdrop" id="protected-ports-modal" hidden>
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="protected-ports-modal-title">
