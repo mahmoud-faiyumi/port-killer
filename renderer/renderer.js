@@ -244,6 +244,38 @@
     );
   }
 
+  function iconBrowser() {
+    return svgIcon(
+      { width: '14', height: '14' },
+      [
+        {
+          tag: 'circle',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '1.5',
+          cx: '12',
+          cy: '12',
+          r: '10',
+        },
+        {
+          tag: 'path',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '1.5',
+          'stroke-linecap': 'round',
+          d: 'M2 12h20',
+        },
+        {
+          tag: 'path',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': '1.5',
+          d: 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z',
+        },
+      ],
+    );
+  }
+
   function portRange(lo, hi) {
     const out = [];
     for (let p = lo; p <= hi; p += 1) {
@@ -886,6 +918,21 @@
       copyWrap.appendChild(mkCopyBtn('Copy full row', formatRowLine(r), iconClipboard));
       copyTd.appendChild(copyWrap);
       tr.appendChild(copyTd);
+
+      const openTd = document.createElement('td');
+      openTd.className = 'col-open';
+      const openWrap = document.createElement('div');
+      openWrap.className = 'open-actions';
+      const browserBtn = document.createElement('button');
+      browserBtn.type = 'button';
+      browserBtn.className = 'btn btn-table btn-browser';
+      browserBtn.title = `Open http://localhost:${String(r.port)}`;
+      browserBtn.dataset.browserPort = String(r.port);
+      browserBtn.appendChild(iconBrowser());
+      openWrap.appendChild(browserBtn);
+      openTd.appendChild(openWrap);
+      tr.appendChild(openTd);
+
       const actionTd = document.createElement('td');
       actionTd.className = 'col-action';
       const btn = document.createElement('button');
@@ -903,7 +950,7 @@
         detailTr.className = 'row-detail';
         detailTr.hidden = true;
         const detailTd = document.createElement('td');
-        detailTd.colSpan = 9;
+        detailTd.colSpan = 10;
         detailTd.appendChild(buildStateDetailTable(variants));
         detailTr.appendChild(detailTd);
         frag.appendChild(detailTr);
@@ -1212,6 +1259,21 @@
   }
 
   async function onRowsBodyClick(ev) {
+    const browserBtnEl = ev.target.closest('button.btn-browser');
+    if (browserBtnEl instanceof HTMLButtonElement && browserBtnEl.dataset.browserPort != null) {
+      ev.stopPropagation();
+      const port = Number.parseInt(browserBtnEl.dataset.browserPort, 10);
+      if (!Number.isInteger(port)) {
+        return;
+      }
+      const api = window.portKiller;
+      if (api && typeof api.openInBrowser === 'function') {
+        await api.openInBrowser(port);
+        setStatus(`Opened http://localhost:${String(port)} in browser.`, 'success');
+      }
+      return;
+    }
+
     const copyBtn = ev.target.closest('button.btn-copy-micro');
     if (copyBtn instanceof HTMLButtonElement && copyBtn.dataset.copyText != null) {
       ev.stopPropagation();

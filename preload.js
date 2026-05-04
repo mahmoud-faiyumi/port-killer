@@ -58,4 +58,7 @@ contextBridge.exposeInMainWorld('portKiller', {
   getReleaseNotes(version) {
     return ipcRenderer.invoke('get-release-notes', version);
   },
+  openInBrowser(port) {
+    return ipcRenderer.invoke('open-in-browser', port);
+  },
 });

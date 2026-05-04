@@ -33,7 +33,37 @@ let isQuitting = false;
 let settingsStore = null;
 
 const KILL_HISTORY_LIMIT = 50;
-const killHistory = [];
+const KILL_HISTORY_FILE = 'kill-history.json';
+const KILL_HISTORY_PERSIST_LIMIT = 200;
+let killHistory = [];
+let killHistoryPath = null;
+
+function loadKillHistory() {
+  if (!killHistoryPath) {
+    return [];
+  }
+  try {
+    const raw = fs.readFileSync(killHistoryPath, 'utf8');
+    const data = JSON.parse(raw);
+    if (Array.isArray(data)) {
+      return data.slice(0, KILL_HISTORY_PERSIST_LIMIT);
+    }
+  } catch {}
+  return [];
+}
+
+function saveKillHistory() {
+  if (!killHistoryPath) {
+    return;
+  }
+  try {
+    fs.writeFileSync(
+      killHistoryPath,
+      JSON.stringify(killHistory.slice(0, KILL_HISTORY_PERSIST_LIMIT), null, 2),
+      'utf8',
+    );
+  } catch {}
+}
 
 function getPreloadPath() {
   return path.join(__dirname, 'preload.js');
@@ -100,9 +130,10 @@ function createWindow() {
 
 function pushKillHistory(entry) {
   killHistory.unshift(entry);
-  if (killHistory.length > KILL_HISTORY_LIMIT) {
-    killHistory.length = KILL_HISTORY_LIMIT;
+  if (killHistory.length > KILL_HISTORY_PERSIST_LIMIT) {
+    killHistory.length = KILL_HISTORY_PERSIST_LIMIT;
   }
+  saveKillHistory();
 }
 
 function getMainWindowOrNull() {
@@ -415,6 +446,8 @@ function createApplicationMenuTemplate() {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(createApplicationMenuTemplate()));
   settingsStore = createSettingsStore(app);
+  killHistoryPath = path.join(app.getPath('userData'), KILL_HISTORY_FILE);
+  killHistory = loadKillHistory();
   subscribeToUpdateState((state) => {
     const win = getMainWindowOrNull();
     if (win) {
@@ -486,5 +519,14 @@ ipcMain.handle('set-settings', (_event, patch) => {
   updateTrayMenu();
   return next;
 });
-ipcMain.handle('get-kill-history', () => ({ ok: true, data: [...killHistory] }));
+ipcMain.handle('get-kill-history', () => ({ ok: true, data: killHistory.slice(0, KILL_HISTORY_LIMIT) }));
 ipcMain.handle('free-protected-ports', async () => runFreeProtectedPorts('renderer'));
+
+ipcMain.handle('open-in-browser', (_event, port) => {
+  const portNum = Number.parseInt(String(port), 10);
+  if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+    return { ok: false, error: 'Invalid port' };
+  }
+  shell.openExternal(`http://localhost:${String(portNum)}`).catch(() => {});
+  return { ok: true };
+});

@@ -494,6 +494,12 @@ body {
 
 .data-table th:nth-child(9),
 .data-table td:nth-child(9) {
+  width: 5.5rem;
+  text-align: center;
+}
+
+.data-table th:nth-child(10),
+.data-table td:nth-child(10) {
   width: 5.25rem;
   text-align: right;
   padding-right: 1rem;
@@ -1172,7 +1178,35 @@ body[data-theme="light"] .btn-pin-toggle--active {
   gap: 0.5rem;
 }
 
-/* Light theme (explicit) */
+.data-table .col-open,
+.data-table .th-open {
+  text-align: center;
+}
+
+.open-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
+}
+
+.btn-browser {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0.2rem;
+  border-radius: 5px;
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.btn-browser:hover:not(:disabled) {
+  border-color: var(--success);
+  background: rgba(52, 211, 153, 0.22);
+  color: #a7f3d0;
+}
+
 body[data-theme="light"] {
   --bg: #f1f5f9;
   --bg-elevated: #ffffff;
@@ -1221,7 +1255,6 @@ body[data-theme="light"] .data-table tbody tr.row-detail td {
   background: rgba(241, 245, 249, 0.85);
 }
 
-/* System preference: light */
 @media (prefers-color-scheme: light) {
   body[data-theme="system"] {
     --bg: #f1f5f9;
