@@ -604,9 +604,8 @@
   }
 
   function orderRowsForDisplay(rows) {
-    const query = filterInput?.value?.trim() ?? '';
     const pinned = new Set(Array.isArray(currentSettings?.pinnedPorts) ? currentSettings.pinnedPorts : []);
-    if (query.length === 0 || pinned.size === 0) {
+    if (pinned.size === 0) {
       return sortRowsList(rows);
     }
     const pinnedRows = [];
@@ -714,7 +713,7 @@
     const next = Array.from(nextSet).sort((a, b) => a - b);
     await saveSettingsFromUi({ pinnedPorts: next });
     setStatus(
-      wasPinned ? `Unpinned port ${String(port)}.` : `Pinned port ${String(port)} (shown first while filtering).`,
+      wasPinned ? `Unpinned port ${String(port)}.` : `Pinned port ${String(port)} (shown at top of the list).`,
       'success',
     );
   }
@@ -874,8 +873,8 @@
       pinBtn.replaceChildren(iconPin());
       pinBtn.classList.toggle('btn-pin-toggle--active', isPinned);
       pinBtn.setAttribute('aria-pressed', isPinned ? 'true' : 'false');
-      pinBtn.setAttribute('aria-label', isPinned ? `Unpin port ${String(r.port)}` : `Pin port ${String(r.port)} to top while filtering`);
-      pinBtn.title = isPinned ? 'Unpin row' : 'Pin row (shown first while filtering)';
+      pinBtn.setAttribute('aria-label', isPinned ? `Unpin port ${String(r.port)}` : `Pin port ${String(r.port)} to top of list`);
+      pinBtn.title = isPinned ? 'Unpin row' : 'Pin row (keeps this port at the top)';
       pinTd.appendChild(pinBtn);
       tr.appendChild(pinTd);
       const favoriteTd = document.createElement('td');
