@@ -1042,9 +1042,18 @@ body[data-theme="light"] .btn-pin-toggle--active {
   color: #b9c6d8;
 }
 
-.btn-history-refresh {
+.btn-history-refresh,
+.btn-history-export {
   padding: 0.3rem 0.55rem;
   font-size: 0.75rem;
+}
+
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
 .history-list {

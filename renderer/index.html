@@ -136,7 +136,15 @@
       <section class="history-panel" aria-label="Kill history">
         <div class="history-head">
           <h2>Kill history</h2>
-          <button type="button" class="btn btn-ghost btn-history-refresh" id="history-refresh-btn">Refresh history</button>
+          <div class="history-actions" role="group" aria-label="History actions">
+            <button type="button" class="btn btn-ghost btn-history-export" id="history-export-csv-btn" title="Save all stored entries (up to 200) as CSV">
+              Export CSV
+            </button>
+            <button type="button" class="btn btn-ghost btn-history-export" id="history-export-txt-btn" title="Save all stored entries (up to 200) as a text file">
+              Export text
+            </button>
+            <button type="button" class="btn btn-ghost btn-history-refresh" id="history-refresh-btn">Refresh history</button>
+          </div>
         </div>
         <ul class="history-list" id="history-list">
           <li class="history-empty">No actions yet.</li>

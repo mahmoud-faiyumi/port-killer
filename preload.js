@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('portKiller', {
   getKillHistory() {
     return ipcRenderer.invoke('get-kill-history');
   },
+  getKillHistoryExport() {
+    return ipcRenderer.invoke('get-kill-history-export');
+  },
+  saveTextFile(payload) {
+    return ipcRenderer.invoke('save-text-file', payload);
+  },
   onTrayRefresh(callback) {
     if (typeof callback !== 'function') {
       return () => {};

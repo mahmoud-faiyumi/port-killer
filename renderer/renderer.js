@@ -21,6 +21,8 @@
   const killDelayInput = document.querySelector('#kill-delay-input');
   const minimizeToTrayInput = document.querySelector('#minimize-to-tray-input');
   const historyRefreshBtn = document.querySelector('#history-refresh-btn');
+  const historyExportCsvBtn = document.querySelector('#history-export-csv-btn');
+  const historyExportTxtBtn = document.querySelector('#history-export-txt-btn');
   const historyList = document.getElementById('history-list');
   const killQueue = document.getElementById('kill-queue');
   const countBadge = document.getElementById('count-badge');
@@ -39,6 +41,7 @@
 
   const WELL_KNOWN_PORT_MAX = 1023;
   const EXTRA_DEV_PORTS_STORAGE_KEY = 'portKiller.devPortsExtra';
+  const FILTER_QUERY_STORAGE_KEY = 'portKiller.lastFilterQuery';
   const SNACK_AUTO_HIDE_MS = 5000;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -412,6 +415,27 @@
       const s = localStorage.getItem(EXTRA_DEV_PORTS_STORAGE_KEY);
       if (s) {
         extraDevPortsInput.value = s;
+      }
+    } catch {}
+  }
+
+  function persistFilterQuery() {
+    if (!filterInput) {
+      return;
+    }
+    try {
+      localStorage.setItem(FILTER_QUERY_STORAGE_KEY, filterInput.value);
+    } catch {}
+  }
+
+  function loadFilterQueryFromStorage() {
+    if (!filterInput) {
+      return;
+    }
+    try {
+      const s = localStorage.getItem(FILTER_QUERY_STORAGE_KEY);
+      if (s !== null) {
+        filterInput.value = s;
       }
     } catch {}
   }
@@ -1160,6 +1184,92 @@
     return `${time} · PID ${String(entry.pid)} · ${String(entry.processName)} · port ${entry.port ?? 'n/a'} · ${String(entry.outcome)}`;
   }
 
+  function csvEscapeField(value) {
+    const s = String(value ?? '');
+    if (/[",\r\n]/.test(s)) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  function buildKillHistoryCsv(rows) {
+    const header = 'timestamp,pid,processName,port,tree,outcome';
+    const lines = rows.map((e) =>
+      [
+        csvEscapeField(e.timestamp),
+        csvEscapeField(e.pid),
+        csvEscapeField(e.processName),
+        e.port == null ? '' : csvEscapeField(e.port),
+        e.tree === true ? 'true' : 'false',
+        csvEscapeField(e.outcome),
+      ].join(','),
+    );
+    return `\uFEFF${[header, ...lines].join('\r\n')}\r\n`;
+  }
+
+  function formatHistoryExportLine(entry) {
+    const ts = entry.timestamp != null ? String(entry.timestamp) : '—';
+    const port = entry.port != null ? String(entry.port) : 'n/a';
+    return `${ts} | PID ${String(entry.pid)} | ${String(entry.processName)} | port ${port} | tree ${entry.tree === true ? 'yes' : 'no'} | ${String(entry.outcome ?? '')}`;
+  }
+
+  function buildKillHistoryTxt(rows) {
+    const gen = new Date().toISOString();
+    const lines = [
+      'Port Killer — kill history export',
+      `Exported (UTC): ${gen}`,
+      `Entries: ${String(rows.length)}`,
+      '='.repeat(48),
+    ];
+    for (const e of rows) {
+      lines.push(formatHistoryExportLine(e));
+    }
+    lines.push('');
+    return `${lines.join('\n')}\n`;
+  }
+
+  async function exportKillHistory(format) {
+    const api = window.portKiller;
+    if (!api || typeof api.getKillHistoryExport !== 'function' || typeof api.saveTextFile !== 'function') {
+      setStatus('Export is not available.', 'error');
+      return;
+    }
+    const res = await api.getKillHistoryExport();
+    if (!res || res.ok !== true || !Array.isArray(res.data) || res.data.length === 0) {
+      setStatus('Nothing to export.', 'error');
+      return;
+    }
+    const rows = res.data;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    let content;
+    let defaultPath;
+    let filters;
+    if (format === 'csv') {
+      content = buildKillHistoryCsv(rows);
+      defaultPath = `port-killer-kill-history-${stamp}.csv`;
+      filters = [
+        { name: 'CSV', extensions: ['csv'] },
+        { name: 'All files', extensions: ['*'] },
+      ];
+    } else {
+      content = buildKillHistoryTxt(rows);
+      defaultPath = `port-killer-kill-history-${stamp}.txt`;
+      filters = [
+        { name: 'Text', extensions: ['txt'] },
+        { name: 'All files', extensions: ['*'] },
+      ];
+    }
+    const saveRes = await api.saveTextFile({ content, defaultPath, filters });
+    if (!saveRes || saveRes.cancelled === true) {
+      return;
+    }
+    if (saveRes.ok !== true) {
+      setStatus(`Export failed: ${String(saveRes?.error || 'Unknown error')}`, 'error');
+      return;
+    }
+    setStatus(`Saved: ${String(saveRes.filePath)}`, 'success');
+  }
+
   async function refreshHistory() {
     const api = window.portKiller;
     if (!api || typeof api.getKillHistory !== 'function' || !historyList) {
@@ -1469,7 +1579,10 @@
     installUpdateBtn.addEventListener('click', () => void installDownloadedUpdateFromUi());
   }
   if (filterInput) {
-    filterInput.addEventListener('input', () => renderFromCache());
+    filterInput.addEventListener('input', () => {
+      persistFilterQuery();
+      renderFromCache();
+    });
   }
   if (showSystemPortsInput) {
     showSystemPortsInput.addEventListener('change', () => renderFromCache());
@@ -1571,6 +1684,12 @@
   if (historyRefreshBtn) {
     historyRefreshBtn.addEventListener('click', () => void refreshHistory());
   }
+  if (historyExportCsvBtn) {
+    historyExportCsvBtn.addEventListener('click', () => void exportKillHistory('csv'));
+  }
+  if (historyExportTxtBtn) {
+    historyExportTxtBtn.addEventListener('click', () => void exportKillHistory('txt'));
+  }
   if (portsTable) {
     portsTable.addEventListener('click', (ev) => {
       const sortBtn = ev.target.closest('.th-sort');
@@ -1598,6 +1717,7 @@
   }
 
   loadExtraDevPortsFromStorage();
+  loadFilterQueryFromStorage();
   syncDevOnlyUi();
 
   const api = window.portKiller;
@@ -1623,6 +1743,10 @@
     await refresh();
     await refreshHistory();
   }
+
+  window.addEventListener('beforeunload', () => {
+    persistFilterQuery();
+  });
 
   void boot();
 })();

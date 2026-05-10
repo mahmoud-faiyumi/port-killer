@@ -520,6 +520,32 @@ ipcMain.handle('set-settings', (_event, patch) => {
   return next;
 });
 ipcMain.handle('get-kill-history', () => ({ ok: true, data: killHistory.slice(0, KILL_HISTORY_LIMIT) }));
+ipcMain.handle('get-kill-history-export', () => ({ ok: true, data: [...killHistory] }));
+ipcMain.handle('save-text-file', async (_event, payload) => {
+  const raw = payload && typeof payload === 'object' ? payload : {};
+  const content = String(raw.content ?? '');
+  const defaultPath =
+    typeof raw.defaultPath === 'string' && raw.defaultPath.trim().length > 0 ? raw.defaultPath.trim() : 'export.txt';
+  const filters = Array.isArray(raw.filters) && raw.filters.length > 0 ? raw.filters : [{ name: 'Text', extensions: ['txt'] }];
+  const win = getMainWindowOrNull() ?? undefined;
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Export kill history',
+      defaultPath,
+      filters,
+    });
+    if (canceled || !filePath) {
+      return { ok: false, cancelled: true };
+    }
+    fs.writeFileSync(filePath, content, 'utf8');
+    return { ok: true, filePath };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
 ipcMain.handle('free-protected-ports', async () => runFreeProtectedPorts('renderer'));
 
 ipcMain.handle('open-in-browser', (_event, port) => {
