@@ -1440,15 +1440,36 @@
       if (!(await confirmKill(pid, name))) {
         return;
       }
+      btn.disabled = true;
+      btn.classList.add('btn-kill--busy');
+      btn.setAttribute('aria-busy', 'true');
+      btn.replaceChildren();
+      const spin = document.createElement('span');
+      spin.className = 'btn-kill-spinner';
+      spin.setAttribute('aria-hidden', 'true');
+      btn.appendChild(spin);
+      const busyLabel = document.createElement('span');
+      busyLabel.className = 'sr-only';
+      busyLabel.textContent = 'Stopping process…';
+      btn.appendChild(busyLabel);
       setStatus(`Stopping PID ${String(pid)}…`);
-      const result = await killWithDelay({ pid, processName: name, port });
-      if (result && result.ok) {
-        setStatus(`Stopped PID ${String(pid)}.`, 'success');
-      } else {
-        const err = result && result.error != null ? String(result.error) : 'Failed';
-        setStatus(`Could not stop PID ${String(pid)}: ${err}`, 'error');
+      try {
+        const result = await killWithDelay({ pid, processName: name, port });
+        if (result && result.ok) {
+          setStatus(`Stopped PID ${String(pid)}.`, 'success');
+        } else {
+          const err = result && result.error != null ? String(result.error) : 'Failed';
+          setStatus(`Could not stop PID ${String(pid)}: ${err}`, 'error');
+        }
+        await refresh();
+      } finally {
+        if (btn.isConnected) {
+          btn.classList.remove('btn-kill--busy');
+          btn.removeAttribute('aria-busy');
+          btn.disabled = false;
+          btn.textContent = 'Kill';
+        }
       }
-      await refresh();
       return;
     }
     const mainRow = ev.target.closest('tr.row-expandable');

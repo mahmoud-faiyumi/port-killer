@@ -344,6 +344,28 @@ body {
   min-width: 3.25rem;
 }
 
+.btn-danger.btn-table.btn-kill--busy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-danger.btn-table.btn-kill--busy:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+
+.btn-kill-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, var(--danger) 38%, transparent);
+  border-top-color: var(--danger);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+
 .snack-panel {
   margin-bottom: 0.6rem;
   padding: 0.6rem 0.7rem;
