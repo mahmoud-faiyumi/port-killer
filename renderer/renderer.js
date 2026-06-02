@@ -1084,12 +1084,32 @@
     closeProtectedPortsModal();
   }
 
+  function syncPresetPortSuggestions() {
+    if (!protectedPortsModal) {
+      return;
+    }
+    const selected = new Set(favoritePortsDraft);
+    for (const chip of protectedPortsModal.querySelectorAll('[data-port-chip]')) {
+      if (!(chip instanceof HTMLButtonElement)) {
+        continue;
+      }
+      const value = chip.dataset.portChip;
+      if (!value || value === 'clear') {
+        chip.hidden = false;
+        continue;
+      }
+      const parsed = Number.parseInt(value, 10);
+      chip.hidden = Number.isInteger(parsed) && selected.has(parsed);
+    }
+  }
+
   function renderFavoritePortsDraft() {
     if (!favoritePortsList) {
       return;
     }
     if (favoritePortsDraft.length === 0) {
       favoritePortsList.innerHTML = '<span class="favorite-port-empty">No favorite ports yet.</span>';
+      syncPresetPortSuggestions();
       updateProtectedPortsModalFeedback();
       return;
     }
@@ -1104,6 +1124,7 @@
       frag.appendChild(chip);
     }
     favoritePortsList.replaceChildren(frag);
+    syncPresetPortSuggestions();
     updateProtectedPortsModalFeedback();
   }
 
