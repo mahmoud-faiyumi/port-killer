@@ -3,8 +3,60 @@ const path = require('node:path');
 
 const SETTINGS_FILE_NAME = 'settings.json';
 
+function portRange(lo, hi) {
+  const out = [];
+  for (let p = lo; p <= hi; p += 1) {
+    out.push(p);
+  }
+  return out;
+}
+
+const DEFAULT_DEV_PORTS = Object.freeze([
+  80,
+  443,
+  1337,
+  2015,
+  2368,
+  3333,
+  4567,
+  ...portRange(3000, 3010),
+  ...portRange(4000, 4002),
+  ...portRange(4200, 4210),
+  4300,
+  4400,
+  4500,
+  4600,
+  4700,
+  4800,
+  ...portRange(5000, 5010),
+  5050,
+  5060,
+  ...portRange(5173, 5176),
+  5280,
+  5432,
+  5500,
+  5555,
+  5601,
+  ...portRange(6000, 6010),
+  6006,
+  6379,
+  ...portRange(7000, 7010),
+  ...portRange(8000, 8010),
+  ...portRange(8080, 8089),
+  8443,
+  8888,
+  9000,
+  9001,
+  9002,
+  9090,
+  9229,
+  9443,
+]);
+
 const DEFAULT_SETTINGS = Object.freeze({
   protectedPorts: [3000, 4200, 8080],
+  devPorts: [...DEFAULT_DEV_PORTS],
+  devPortsOnly: true,
   killProcessTree: true,
   minimizeToTray: true,
   killDelaySeconds: 5,
@@ -15,9 +67,10 @@ const DEFAULT_SETTINGS = Object.freeze({
   dismissedReleaseNotesVersion: '',
 });
 
-function sanitizePortList(values) {
+function sanitizePortList(values, fallback) {
+  const fallbackList = Array.isArray(fallback) ? fallback : [...DEFAULT_SETTINGS.protectedPorts];
   if (!Array.isArray(values)) {
-    return [...DEFAULT_SETTINGS.protectedPorts];
+    return [...fallbackList];
   }
   const set = new Set();
   for (const value of values) {
@@ -59,7 +112,9 @@ function sanitizeSettings(input) {
       ? settings.dismissedReleaseNotesVersion
       : DEFAULT_SETTINGS.dismissedReleaseNotesVersion;
   const next = {
-    protectedPorts: sanitizePortList(settings.protectedPorts),
+    protectedPorts: sanitizePortList(settings.protectedPorts, DEFAULT_SETTINGS.protectedPorts),
+    devPorts: sanitizePortList(settings.devPorts, DEFAULT_DEV_PORTS),
+    devPortsOnly: settings.devPortsOnly !== false,
     killProcessTree: settings.killProcessTree !== false,
     minimizeToTray: settings.minimizeToTray !== false,
     killDelaySeconds: Number.isInteger(settings.killDelaySeconds)
@@ -95,4 +150,4 @@ function createSettingsStore(app) {
   return { read, write, path: settingsPath };
 }
 
-module.exports = { createSettingsStore, DEFAULT_SETTINGS, sanitizeSettings };
+module.exports = { createSettingsStore, DEFAULT_SETTINGS, DEFAULT_DEV_PORTS, sanitizeSettings };

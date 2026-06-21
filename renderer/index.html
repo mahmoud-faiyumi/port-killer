@@ -47,22 +47,23 @@
             <input type="checkbox" id="show-system-ports" />
             <span>Show system ports</span>
           </label>
-          <div class="filter-group" title="Typical local dev: Angular, Vite, CRA, webpack, etc.">
-            <label class="check-label check-label--block">
-              <input type="checkbox" id="dev-manual-ports-only" checked />
-              <span>Dev / manual ports only</span>
-            </label>
-            <input
-              type="text"
-              class="extra-ports-input"
-              id="extra-dev-ports"
-              placeholder="Extra ports: 9000, 7777"
-              inputmode="numeric"
-              autocomplete="off"
-              spellcheck="false"
-              disabled
-            />
-          </div>
+          <label class="check-label" title="Show only ports in your dev allowlist">
+            <input type="checkbox" id="dev-manual-ports-only" checked />
+            <span>Dev / manual ports only</span>
+          </label>
+          <button type="button" class="btn btn-ghost btn-favorite-ports" id="dev-ports-btn" title="Edit dev port allowlist">
+            <svg class="icon-svg icon-svg--toolbar" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 6h16M4 12h16M4 18h7"
+              />
+            </svg>
+            Dev ports
+          </button>
         </div>
         <div class="filters-row filters-row--options">
           <div class="settings-group">
@@ -159,6 +160,41 @@
         <pre class="release-notes-body" id="release-notes-body"></pre>
         <div class="modal-actions">
           <button type="button" class="btn btn-primary" id="release-notes-ok-btn">OK</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-backdrop" id="dev-ports-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dev-ports-modal-title">
+        <h3 id="dev-ports-modal-title">Dev ports</h3>
+        <p class="modal-copy">Ports shown when &ldquo;Dev / manual ports only&rdquo; is enabled. Add one by one; click a card to remove.</p>
+        <div class="favorite-ports-list" id="dev-ports-list" aria-live="polite"></div>
+        <div class="favorite-ports-entry">
+          <input
+            id="dev-ports-modal-input"
+            class="delay-input favorite-port-input"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            placeholder="Add port"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="button" class="btn btn-primary" id="dev-ports-add-btn">Add</button>
+        </div>
+        <div class="modal-presets" aria-label="Common dev ports">
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="3000">3000</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="4200">4200</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="5173">5173</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="8080">8080</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="9229">9229</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="9000">9000</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="defaults">Defaults</button>
+          <button type="button" class="btn btn-ghost btn-chip" data-dev-port-chip="clear">Clear</button>
+        </div>
+        <p class="modal-feedback" id="dev-ports-modal-feedback" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="dev-ports-cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="dev-ports-save-btn">Save</button>
         </div>
       </div>
     </div>

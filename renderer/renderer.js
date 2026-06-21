@@ -8,7 +8,14 @@
   const filterInput = document.querySelector('#filter-input');
   const showSystemPortsInput = document.querySelector('#show-system-ports');
   const devManualPortsOnlyInput = document.querySelector('#dev-manual-ports-only');
-  const extraDevPortsInput = document.querySelector('#extra-dev-ports');
+  const devPortsBtn = document.querySelector('#dev-ports-btn');
+  const devPortsModal = document.getElementById('dev-ports-modal');
+  const devPortsModalInput = document.getElementById('dev-ports-modal-input');
+  const devPortsAddBtn = document.getElementById('dev-ports-add-btn');
+  const devPortsList = document.getElementById('dev-ports-list');
+  const devPortsModalFeedback = document.getElementById('dev-ports-modal-feedback');
+  const devPortsCancelBtn = document.getElementById('dev-ports-cancel-btn');
+  const devPortsSaveBtn = document.getElementById('dev-ports-save-btn');
   const protectedPortsBtn = document.querySelector('#protected-ports-btn');
   const protectedPortsModal = document.getElementById('protected-ports-modal');
   const protectedPortsModalInput = document.getElementById('protected-ports-modal-input');
@@ -41,7 +48,7 @@
   const releaseNotesOkBtn = document.getElementById('release-notes-ok-btn');
 
   const WELL_KNOWN_PORT_MAX = 1023;
-  const EXTRA_DEV_PORTS_STORAGE_KEY = 'portKiller.devPortsExtra';
+  const LEGACY_EXTRA_DEV_PORTS_STORAGE_KEY = 'portKiller.devPortsExtra';
   const FILTER_QUERY_STORAGE_KEY = 'portKiller.lastFilterQuery';
   const SNACK_AUTO_HIDE_MS = 5000;
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -280,60 +287,12 @@
     );
   }
 
-  function portRange(lo, hi) {
-    const out = [];
-    for (let p = lo; p <= hi; p += 1) {
-      out.push(p);
-    }
-    return out;
-  }
-
-  const DEFAULT_MANUAL_DEV_PORT_SET = new Set([
-    80,
-    443,
-    1337,
-    2015,
-    2368,
-    3333,
-    4567,
-    ...portRange(3000, 3010),
-    ...portRange(4000, 4002),
-    ...portRange(4200, 4210),
-    4300,
-    4400,
-    4500,
-    4600,
-    4700,
-    4800,
-    ...portRange(5000, 5010),
-    5050,
-    5060,
-    ...portRange(5173, 5176),
-    5280,
-    5432,
-    5500,
-    5555,
-    5601,
-    ...portRange(6000, 6010),
-    6006,
-    6379,
-    ...portRange(7000, 7010),
-    ...portRange(8000, 8010),
-    ...portRange(8080, 8089),
-    8443,
-    8888,
-    9000,
-    9001,
-    9002,
-    9090,
-    9229,
-    9443,
-  ]);
-
   let allRows = null;
   let currentSettings = null;
   let activeKillJob = null;
   let favoritePortsDraft = [];
+  let devPortsDraft = [];
+  let defaultDevPorts = [];
   let releaseNotesPendingVersion = null;
 
   function parseCommaSeparatedPorts(raw) {
@@ -376,12 +335,8 @@
   }
 
   function buildManualDevAllowlistSet() {
-    const set = new Set(DEFAULT_MANUAL_DEV_PORT_SET);
-    const text = extraDevPortsInput?.value ?? '';
-    for (const p of parseCommaSeparatedPorts(text)) {
-      set.add(p);
-    }
-    return set;
+    const ports = Array.isArray(currentSettings?.devPorts) ? currentSettings.devPorts : [];
+    return new Set(ports);
   }
 
   function applyManualDevFilter(data) {
@@ -392,31 +347,32 @@
     return data.filter((r) => allow.has(r.port));
   }
 
-  function syncDevOnlyUi() {
-    const on = devManualPortsOnlyInput?.checked === true;
-    if (extraDevPortsInput) {
-      extraDevPortsInput.disabled = !on;
+  async function loadDefaultDevPorts() {
+    const api = window.portKiller;
+    if (!api || typeof api.getDefaultDevPorts !== 'function') {
+      return;
+    }
+    const ports = await api.getDefaultDevPorts();
+    if (Array.isArray(ports)) {
+      defaultDevPorts = ports;
     }
   }
 
-  function persistExtraDevPorts() {
-    if (!extraDevPortsInput) {
-      return;
-    }
+  async function migrateLegacyExtraDevPorts() {
     try {
-      localStorage.setItem(EXTRA_DEV_PORTS_STORAGE_KEY, extraDevPortsInput.value);
-    } catch {}
-  }
-
-  function loadExtraDevPortsFromStorage() {
-    if (!extraDevPortsInput) {
-      return;
-    }
-    try {
-      const s = localStorage.getItem(EXTRA_DEV_PORTS_STORAGE_KEY);
-      if (s) {
-        extraDevPortsInput.value = s;
+      const raw = localStorage.getItem(LEGACY_EXTRA_DEV_PORTS_STORAGE_KEY);
+      if (!raw || !raw.trim()) {
+        return;
       }
+      const extra = parseCommaSeparatedPorts(raw);
+      localStorage.removeItem(LEGACY_EXTRA_DEV_PORTS_STORAGE_KEY);
+      if (extra.length === 0) {
+        return;
+      }
+      const existing = Array.isArray(currentSettings?.devPorts) ? currentSettings.devPorts : [];
+      const merged = Array.from(new Set([...existing, ...extra])).sort((a, b) => a - b);
+      await saveSettingsFromUi({ devPorts: merged });
+      setStatus(`Imported ${String(extra.length)} port(s) from previous extra-dev list.`, 'success');
     } catch {}
   }
 
@@ -1053,6 +1009,9 @@
     if (minimizeToTrayInput) {
       minimizeToTrayInput.checked = settings.minimizeToTray === true;
     }
+    if (devManualPortsOnlyInput) {
+      devManualPortsOnlyInput.checked = settings.devPortsOnly !== false;
+    }
     applyThemeFromSettings();
     updateSortHeaderButtons();
   }
@@ -1066,9 +1025,132 @@
       killProcessTree: killTreeInput?.checked === true,
       killDelaySeconds: Math.max(0, Math.min(30, Number.parseInt(killDelayInput?.value ?? '5', 10) || 5)),
       minimizeToTray: minimizeToTrayInput?.checked === true,
+      devPortsOnly: devManualPortsOnlyInput?.checked === true,
       ...patch,
     });
     applySettingsToUi(next);
+  }
+
+  function openDevPortsModal() {
+    const existing = Array.isArray(currentSettings?.devPorts) ? currentSettings.devPorts : [];
+    devPortsDraft = [...existing].sort((a, b) => a - b);
+    renderDevPortsDraft();
+    if (devPortsModalInput) {
+      devPortsModalInput.value = '';
+    }
+    if (devPortsModal) {
+      devPortsModal.hidden = false;
+    }
+    updateDevPortsModalFeedback();
+    devPortsModalInput?.focus();
+    devPortsModalInput?.select();
+  }
+
+  function closeDevPortsModal() {
+    if (devPortsModal) {
+      devPortsModal.hidden = true;
+    }
+  }
+
+  async function saveDevPortsFromModal() {
+    const parsed = [...devPortsDraft].sort((a, b) => a - b);
+    await saveSettingsFromUi({ devPorts: parsed });
+    setStatus(`Dev ports updated (${parsed.length} configured).`, 'success');
+    closeDevPortsModal();
+    renderFromCache();
+  }
+
+  function syncDevPresetPortSuggestions() {
+    if (!devPortsModal) {
+      return;
+    }
+    const selected = new Set(devPortsDraft);
+    for (const chip of devPortsModal.querySelectorAll('[data-dev-port-chip]')) {
+      if (!(chip instanceof HTMLButtonElement)) {
+        continue;
+      }
+      const value = chip.dataset.devPortChip;
+      if (!value || value === 'clear' || value === 'defaults') {
+        chip.hidden = false;
+        continue;
+      }
+      const parsed = Number.parseInt(value, 10);
+      chip.hidden = Number.isInteger(parsed) && selected.has(parsed);
+    }
+  }
+
+  function renderDevPortsDraft() {
+    if (!devPortsList) {
+      return;
+    }
+    if (devPortsDraft.length === 0) {
+      devPortsList.innerHTML = '<span class="favorite-port-empty">No dev ports yet.</span>';
+      syncDevPresetPortSuggestions();
+      updateDevPortsModalFeedback();
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const port of devPortsDraft) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'favorite-port-card';
+      chip.dataset.devPort = String(port);
+      chip.textContent = `${String(port)} ×`;
+      chip.title = `Remove ${String(port)}`;
+      frag.appendChild(chip);
+    }
+    devPortsList.replaceChildren(frag);
+    syncDevPresetPortSuggestions();
+    updateDevPortsModalFeedback();
+  }
+
+  function addDevPortFromInput() {
+    const parsed = parseSinglePort(devPortsModalInput?.value ?? '');
+    if (parsed == null) {
+      updateDevPortsModalFeedback('Enter a valid port (1-65535).');
+      return;
+    }
+    if (!devPortsDraft.includes(parsed)) {
+      devPortsDraft.push(parsed);
+      devPortsDraft.sort((a, b) => a - b);
+    }
+    if (devPortsModalInput) {
+      devPortsModalInput.value = '';
+    }
+    renderDevPortsDraft();
+    devPortsModalInput?.focus();
+  }
+
+  function updateDevPortsModalFeedback(forcedErrorMessage) {
+    if (!devPortsModalFeedback) {
+      return;
+    }
+    const { invalid } = analyzePortInput(devPortsModalInput?.value ?? '');
+    devPortsModalFeedback.classList.remove('modal-feedback--error', 'modal-feedback--ok');
+    if (typeof forcedErrorMessage === 'string' && forcedErrorMessage.length > 0) {
+      devPortsModalFeedback.classList.add('modal-feedback--error');
+      devPortsModalFeedback.textContent = forcedErrorMessage;
+      if (devPortsSaveBtn) {
+        devPortsSaveBtn.disabled = true;
+      }
+      return;
+    }
+    if (invalid.length > 0) {
+      devPortsModalFeedback.classList.add('modal-feedback--error');
+      devPortsModalFeedback.textContent = `Invalid: ${invalid.join(', ')}. Use ports 1-65535.`;
+      if (devPortsSaveBtn) {
+        devPortsSaveBtn.disabled = true;
+      }
+      return;
+    }
+    devPortsModalFeedback.classList.add('modal-feedback--ok');
+    devPortsModalFeedback.textContent =
+      devPortsDraft.length > 0
+        ? `${devPortsDraft.length} dev port(s) configured.`
+        : 'No dev ports configured.';
+    if (devPortsSaveBtn) {
+      devPortsSaveBtn.disabled = false;
+    }
   }
 
   function openProtectedPortsModal() {
@@ -1650,14 +1732,84 @@
   }
   if (devManualPortsOnlyInput) {
     devManualPortsOnlyInput.addEventListener('change', () => {
-      syncDevOnlyUi();
-      renderFromCache();
+      void saveSettingsFromUi({ devPortsOnly: devManualPortsOnlyInput.checked === true }).then(() => {
+        renderFromCache();
+      });
     });
   }
-  if (extraDevPortsInput) {
-    extraDevPortsInput.addEventListener('input', () => {
-      persistExtraDevPorts();
-      renderFromCache();
+  if (devPortsBtn) {
+    devPortsBtn.addEventListener('click', openDevPortsModal);
+  }
+  if (devPortsCancelBtn) {
+    devPortsCancelBtn.addEventListener('click', closeDevPortsModal);
+  }
+  if (devPortsSaveBtn) {
+    devPortsSaveBtn.addEventListener('click', () => void saveDevPortsFromModal());
+  }
+  if (devPortsModalInput) {
+    devPortsModalInput.addEventListener('input', () => updateDevPortsModalFeedback());
+    devPortsModalInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addDevPortFromInput();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDevPortsModal();
+      }
+    });
+  }
+  if (devPortsAddBtn) {
+    devPortsAddBtn.addEventListener('click', addDevPortFromInput);
+  }
+  if (devPortsList) {
+    devPortsList.addEventListener('click', (event) => {
+      const target = event.target.closest('[data-dev-port]');
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const p = Number.parseInt(target.dataset.devPort ?? '', 10);
+      if (!Number.isInteger(p)) {
+        return;
+      }
+      devPortsDraft = devPortsDraft.filter((port) => port !== p);
+      renderDevPortsDraft();
+    });
+  }
+  if (devPortsModal) {
+    devPortsModal.addEventListener('click', (event) => {
+      if (event.target === devPortsModal) {
+        closeDevPortsModal();
+      }
+    });
+    devPortsModal.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-dev-port-chip]');
+      if (!(chip instanceof HTMLElement)) {
+        return;
+      }
+      const value = chip.dataset.devPortChip;
+      if (!value) {
+        return;
+      }
+      if (value === 'clear') {
+        devPortsDraft = [];
+        renderDevPortsDraft();
+        return;
+      }
+      if (value === 'defaults') {
+        devPortsDraft = [...defaultDevPorts].sort((a, b) => a - b);
+        renderDevPortsDraft();
+        return;
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isInteger(parsed)) {
+        return;
+      }
+      if (!devPortsDraft.includes(parsed)) {
+        devPortsDraft.push(parsed);
+        devPortsDraft.sort((a, b) => a - b);
+      }
+      renderDevPortsDraft();
     });
   }
   if (protectedPortsBtn) {
@@ -1777,9 +1929,7 @@
     });
   }
 
-  loadExtraDevPortsFromStorage();
   loadFilterQueryFromStorage();
-  syncDevOnlyUi();
 
   const api = window.portKiller;
   if (api && typeof api.onTrayRefresh === 'function') {
@@ -1807,8 +1957,10 @@
   }
 
   async function boot() {
+    await loadDefaultDevPorts();
     if (api && typeof api.getSettings === 'function') {
       applySettingsToUi(await api.getSettings());
+      await migrateLegacyExtraDevPorts();
     }
     if (api && typeof api.getUpdateState === 'function') {
       renderUpdateState(await api.getUpdateState());

@@ -61,6 +61,9 @@ contextBridge.exposeInMainWorld('portKiller', {
   writeClipboard(text) {
     return ipcRenderer.invoke('clipboard-write-text', text);
   },
+  getDefaultDevPorts() {
+    return ipcRenderer.invoke('get-default-dev-ports');
+  },
   getAppInfo() {
     return ipcRenderer.invoke('get-app-info');
   },

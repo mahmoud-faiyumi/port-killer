@@ -17,7 +17,7 @@ const { description: appDescription } = require('./package.json');
 const { getPorts } = require('./src/portScanner');
 const { killProcessByPid } = require('./src/processKiller');
 const { getRiskLevel } = require('./src/processRisk');
-const { createSettingsStore, sanitizeSettings } = require('./src/userSettings');
+const { createSettingsStore, sanitizeSettings, DEFAULT_DEV_PORTS } = require('./src/userSettings');
 const {
   startAutoUpdateChecks,
   checkForUpdatesManual,
@@ -515,6 +515,7 @@ ipcMain.handle('clipboard-write-text', (_event, text) => {
     };
   }
 });
+ipcMain.handle('get-default-dev-ports', () => [...DEFAULT_DEV_PORTS]);
 ipcMain.handle('get-app-info', () => ({
   version: app.getVersion(),
   isPackaged: app.isPackaged,

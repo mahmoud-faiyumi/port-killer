@@ -36,7 +36,7 @@ Local dev left **Angular**, **Vite**, **webpack**, or a random service on a port
 | :--- | :--- |
 | **Scan** | Refresh TCP listeners from Windows `netstat -ano`. |
 | **Filter** | Search by port, address, PID, process name, or state. |
-| **Dev mode** | Optional “dev / manual ports only” preset plus extra port list (saved in `localStorage`). |
+| **Dev mode** | Optional “dev / manual ports only” filter with an editable dev port allowlist (saved in settings). |
 | **System ports** | Optional show/hide for well-known range **1–1023**. |
 | **Kill** | Sends **`taskkill`** for the chosen PID (elevated rights may still be required for some processes). |
 | **Updates** | Packaged Windows builds check **GitHub Releases** via `electron-updater` on startup. |
