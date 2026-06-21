@@ -196,7 +196,11 @@ async function killWithPolicy(target) {
     processName: target.processName,
     port: target.port ?? null,
     tree: target.tree === true,
-    outcome: result.ok ? 'killed' : `error: ${result.error ?? 'Unknown error'}`,
+    outcome: result.ok
+      ? result.alreadyGone
+        ? 'already stopped'
+        : 'killed'
+      : `error: ${result.error ?? 'Unknown error'}`,
   });
   return result;
 }
@@ -511,6 +515,10 @@ ipcMain.handle('clipboard-write-text', (_event, text) => {
     };
   }
 });
+ipcMain.handle('get-app-info', () => ({
+  version: app.getVersion(),
+  isPackaged: app.isPackaged,
+}));
 ipcMain.handle('get-release-notes', async (_event, version) => fetchReleaseNotesForVersion(version));
 ipcMain.handle('get-settings', () => settingsStore.read());
 ipcMain.handle('set-settings', (_event, patch) => {

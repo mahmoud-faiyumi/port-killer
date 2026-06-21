@@ -26,6 +26,7 @@
   const historyList = document.getElementById('history-list');
   const killQueue = document.getElementById('kill-queue');
   const countBadge = document.getElementById('count-badge');
+  const lastScanEl = document.getElementById('last-scan');
   const snackPanel = document.getElementById('snack-panel');
   const snackText = document.getElementById('snack-text');
   const snackProgress = document.getElementById('snack-progress');
@@ -546,12 +547,9 @@
     }
     if (status === 'downloaded') {
       snackText.textContent = state.version
-        ? `Update v${String(state.version)} is ready to install.`
-        : 'Update is ready to install.';
+        ? `Update v${String(state.version)} downloaded. Install and restart to apply.`
+        : 'Update downloaded. Install and restart to apply.';
       installUpdateBtn.hidden = false;
-      if (state.version != null) {
-        void maybeShowReleaseNotesForVersion(state.version);
-      }
       scheduleSnackAutoHide();
       return;
     }
@@ -695,6 +693,14 @@
     releaseNotesPendingVersion = null;
   }
 
+  function updateLastScanTime() {
+    if (!lastScanEl) {
+      return;
+    }
+    lastScanEl.textContent = `Last scan: ${new Date().toLocaleTimeString()}`;
+    lastScanEl.hidden = false;
+  }
+
   async function maybeShowReleaseNotesForVersion(version) {
     const v = version != null ? String(version).trim() : '';
     if (!v) {
@@ -718,6 +724,9 @@
     }
     if (!releaseNotesModal || !releaseNotesBody || !releaseNotesVersionLine) {
       return;
+    }
+    if (releaseNotesTitle) {
+      releaseNotesTitle.textContent = "What's new";
     }
     releaseNotesVersionLine.textContent = `Version ${v}`;
     releaseNotesBody.textContent = bodyText.length > 0 ? bodyText : 'No release notes were published for this version.';
@@ -993,14 +1002,17 @@
     applyFilterToDom(data);
   }
 
-  async function refresh() {
+  async function refresh(options = {}) {
+    const silent = options.silent === true;
     const api = window.portKiller;
     if (!api) {
       setStatus('App bridge not available. Restart the application.', 'error');
       return;
     }
     setLoading(true);
-    setStatus('Loading…');
+    if (!silent) {
+      setStatus('Scanning…');
+    }
     try {
       const res = await api.getPorts();
       if (!res || typeof res !== 'object') {
@@ -1009,17 +1021,20 @@
       }
       if (res.ok && Array.isArray(res.data)) {
         allRows = res.data;
-        setStatus('Ready.');
+        updateLastScanTime();
+        if (!silent) {
+          setStatus('Ready.', 'success');
+        }
         renderFromCache();
       } else {
         const err = 'error' in res && res.error != null ? String(res.error) : 'Unknown error';
-        setStatus(`Failed: ${err}`, 'error');
+        setStatus(`Scan failed: ${err}`, 'error');
         allRows = [];
         renderFromCache([]);
       }
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
-      setStatus(`Failed: ${m}`, 'error');
+      setStatus(`Scan failed: ${m}`, 'error');
       allRows = [];
       renderFromCache([]);
     } finally {
@@ -1477,12 +1492,16 @@
       try {
         const result = await killWithDelay({ pid, processName: name, port });
         if (result && result.ok) {
-          setStatus(`Stopped PID ${String(pid)}.`, 'success');
+          if (result.alreadyGone) {
+            setStatus(`PID ${String(pid)} was already stopped.`, 'success');
+          } else {
+            setStatus(`Stopped PID ${String(pid)}.`, 'success');
+          }
         } else {
           const err = result && result.error != null ? String(result.error) : 'Failed';
           setStatus(`Could not stop PID ${String(pid)}: ${err}`, 'error');
         }
-        await refresh();
+        await refresh({ silent: true });
       } finally {
         if (btn.isConnected) {
           btn.classList.remove('btn-kill--busy');
@@ -1764,7 +1783,7 @@
 
   const api = window.portKiller;
   if (api && typeof api.onTrayRefresh === 'function') {
-    api.onTrayRefresh(() => void refresh());
+    api.onTrayRefresh(() => void refresh({ silent: true }));
   }
   if (api && typeof api.onHistoryUpdated === 'function') {
     api.onHistoryUpdated(() => void refreshHistory());
@@ -1775,6 +1794,18 @@
     });
   }
 
+  async function maybeShowReleaseNotesOnLaunch() {
+    const api = window.portKiller;
+    if (!api || typeof api.getAppInfo !== 'function') {
+      return;
+    }
+    const info = await api.getAppInfo();
+    if (!info || info.isPackaged !== true || !info.version) {
+      return;
+    }
+    await maybeShowReleaseNotesForVersion(String(info.version));
+  }
+
   async function boot() {
     if (api && typeof api.getSettings === 'function') {
       applySettingsToUi(await api.getSettings());
@@ -1782,9 +1813,17 @@
     if (api && typeof api.getUpdateState === 'function') {
       renderUpdateState(await api.getUpdateState());
     }
-    await refresh();
+    await maybeShowReleaseNotesOnLaunch();
+    await refresh({ silent: true });
     await refreshHistory();
   }
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'F5' || (ev.key.toLowerCase() === 'r' && (ev.ctrlKey || ev.metaKey))) {
+      ev.preventDefault();
+      void refresh({ silent: true });
+    }
+  });
 
   window.addEventListener('beforeunload', () => {
     persistFilterQuery();

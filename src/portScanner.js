@@ -1,7 +1,4 @@
-const { execFile } = require('node:child_process');
-const { promisify } = require('node:util');
-
-const execFileAsync = promisify(execFile);
+const { execFileWithRetry } = require('./winExec');
 
 function cleanProcessName(s, fallback) {
   const t = s.trim();
@@ -45,9 +42,8 @@ function parseAddressPort(addressWithPort) {
 async function loadPidToNameMapWindows() {
   const map = new Map();
   try {
-    const { stdout } = await execFileAsync('tasklist', ['/FO', 'CSV', '/NH'], {
-      windowsHide: true,
-      encoding: 'utf8',
+    const { stdout } = await execFileWithRetry('tasklist', ['/FO', 'CSV', '/NH'], {
+      timeoutMs: 15000,
     });
     for (const line of stdout.split(/\r?\n/)) {
       if (!line.trim() || line.startsWith('INFO:')) {
@@ -219,11 +215,11 @@ async function getPortsWindows() {
   if (process.platform !== 'win32') {
     throw new Error('Port Killer supports Windows only.');
   }
-  const pidToName = await loadPidToNameMapWindows();
-  const { stdout } = await execFileAsync('netstat', ['-ano'], {
-    windowsHide: true,
-    encoding: 'utf8',
-  });
+  const [pidToName, netstatResult] = await Promise.all([
+    loadPidToNameMapWindows(),
+    execFileWithRetry('netstat', ['-ano'], { timeoutMs: 20000 }),
+  ]);
+  const { stdout } = netstatResult;
   const lines = stdout.split(/\r?\n/);
   const groups = new Map();
 

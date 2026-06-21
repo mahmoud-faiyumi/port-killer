@@ -243,6 +243,12 @@ body {
   white-space: nowrap;
 }
 
+.last-scan {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

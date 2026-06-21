@@ -24,7 +24,7 @@
           <button type="button" class="btn btn-ghost" id="check-updates-btn" title="Query GitHub for a newer release">
             Check updates
           </button>
-          <button type="button" class="btn btn-primary" id="refresh-btn" title="Reload port list">Refresh</button>
+          <button type="button" class="btn btn-primary" id="refresh-btn" title="Reload port list (F5)">Refresh</button>
         </div>
       </header>
 
@@ -40,6 +40,7 @@
             spellcheck="false"
           />
           <span class="badge" id="count-badge" aria-live="polite">0 entries</span>
+          <span class="last-scan" id="last-scan" hidden>Not scanned yet</span>
         </div>
         <div class="filters-row filters-row--options">
           <label class="check-label" title="Show IANA well-known / privileged range (1–1023)">
